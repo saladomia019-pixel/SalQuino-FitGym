@@ -26,7 +26,7 @@
             </div>
         </div>
         <nav class="sidebar-nav">
-            <a href="#" onclick="showSection('overview')" class="active"><i class="fas fa-home"></i> Overview</a>
+            <a href="#" onclick="showSection('overview')" class="active"><i class="fas fa-home"></i> Dashboard</a>
             <a href="#" onclick="showSection('membership')"><i class="fas fa-id-card"></i> My Membership</a>
             <a href="#" onclick="showSection('checkins')"><i class="fas fa-calendar-check"></i> Check-ins</a>
             <a href="#" onclick="showSection('health')"><i class="fas fa-heartbeat"></i> Health Tracker</a>
@@ -41,7 +41,7 @@
     <div class="main-content" id="mainContent">
         <div class="topbar">
             <div class="hamburger" onclick="toggleSidebar()"><i class="fas fa-bars"></i></div>
-            <h1 id="pageTitle">Overview</h1>
+            <h1 id="pageTitle">Dashboard</h1>
         </div>
 
         <!-- ==================== OVERVIEW ==================== -->
@@ -1167,7 +1167,7 @@
     showSection = function(name) {
         origShowSection(name);
         document.getElementById('pageTitle').textContent =
-            {overview:'Overview',membership:'My Membership',checkins:'Check-ins',health:'Health Tracker',profile:'My Profile'}[name] || name;
+            {overview:'Dashboard',membership:'My Membership',checkins:'Check-ins',health:'Health Tracker',profile:'My Profile'}[name] || name;
         if (name === 'overview') loadOverview();
         else if (name === 'membership') loadMembership();
         else if (name === 'checkins') loadCheckins();
