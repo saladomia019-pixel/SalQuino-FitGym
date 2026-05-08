@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SalQuino FitGym - Gym Management System</title>
+    <meta name="description" content="SalQuino FitGym Gym Management System - Track memberships, daily check-ins, and health progress.">
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="landing-page">
+
+    <!-- NAVIGATION -->
+    <nav class="landing-nav">
+        <div class="logo"><i class="fas fa-dumbbell"></i> SalQuino FitGym</div>
+        <div class="nav-links">
+            <a href="#features" onclick="scrollToSection('features')">Features</a>
+            <a href="#plans" onclick="scrollToSection('plans')">Plans</a>
+            <a href="/login" class="btn-primary" style="padding:10px 24px;font-size:14px;">Get Started</a>
+        </div>
+    </nav>
+
+    <!-- HERO SECTION -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Elevate Your Fitness Journey</h1>
+            <p>SalQuino FitGym is a complete gym management system that helps you track memberships, monitor daily sessions, and achieve your health goals — all in one place.</p>
+            <a href="/login" class="btn-primary">
+                <i class="fas fa-rocket"></i> Get Started
+            </a>
+        </div>
+    </section>
+
+    <!-- INTRODUCTION -->
+    <section class="section" style="padding-top:60px;">
+        <div class="section-title">
+            <h2>What is SalQuino FitGym?</h2>
+            <p>A modern gym membership and health tracking platform built for fitness enthusiasts and gym administrators.</p>
+        </div>
+        <div style="max-width:800px;margin:0 auto;text-align:center;">
+            <p style="color:#94a3b8;line-height:1.8;font-size:16px;">
+                SalQuino FitGym streamlines the entire gym experience — from applying for a membership and getting admin approval,
+                to tracking your daily check-ins and monitoring your weight progress over time. Whether you're a gym member
+                looking to stay consistent or an administrator managing operations, SalQuino FitGym has you covered.
+            </p>
+        </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section class="section" id="features">
+        <div class="section-title">
+            <h2>Key Features</h2>
+            <p>Everything you need to manage your gym experience</p>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="icon"><i class="fas fa-id-card"></i></div>
+                <h3>Membership Management</h3>
+                <p>Apply for Monthly or Yearly plans, get admin approval, and manage your membership status seamlessly.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon"><i class="fas fa-calendar-check"></i></div>
+                <h3>Daily Check-ins</h3>
+                <p>Track every gym session with a single tap. Build consistency and monitor your workout frequency.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon"><i class="fas fa-weight"></i></div>
+                <h3>Health Tracking</h3>
+                <p>Log your weight after each session. Visualize your gains and losses over time to stay on track.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon"><i class="fas fa-user-shield"></i></div>
+                <h3>Admin Control</h3>
+                <p>Full admin dashboard to approve membership requests, manage members, and view payment records.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- PLANS OVERVIEW -->
+    <section class="section" id="plans">
+        <div class="section-title">
+            <h2>Membership Plans</h2>
+            <p>Choose the plan that fits your fitness goals</p>
+        </div>
+        <div class="plans-preview">
+            <div class="plan-preview-card">
+                <h3>Monthly Plan</h3>
+                <div class="price">₱500 <span>/ month</span></div>
+                <ul>
+                    <li><i class="fas fa-check"></i> Full gym access</li>
+                    <li><i class="fas fa-check"></i> Daily check-in tracking</li>
+                    <li><i class="fas fa-check"></i> Weight progress logging</li>
+                    <li><i class="fas fa-check"></i> 30-day duration</li>
+                </ul>
+            </div>
+            <div class="plan-preview-card popular">
+                <div class="pop-badge">BEST VALUE</div>
+                <h3>Yearly Plan</h3>
+                <div class="price">₱5,000 <span>/ year</span></div>
+                <ul>
+                    <li><i class="fas fa-check"></i> Full gym access</li>
+                    <li><i class="fas fa-check"></i> Daily check-in tracking</li>
+                    <li><i class="fas fa-check"></i> Weight progress logging</li>
+                    <li><i class="fas fa-check"></i> 365-day duration</li>
+                    <li><i class="fas fa-check"></i> Save ₱1,000 per year</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="landing-footer">
+        <p>&copy; 2026 SalQuino FitGym Gym Management System. All rights reserved.</p>
+    </footer>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>

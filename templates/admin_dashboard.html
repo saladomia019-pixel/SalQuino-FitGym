@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - SalQuino FitGym</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+<div class="dashboard-container">
+    <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo"><i class="fas fa-dumbbell"></i> SalQuino FitGym</div>
+            <div class="user-info">
+                <div class="avatar" style="background:linear-gradient(135deg,#ef4444,#dc2626);">A</div>
+                <div>
+                    <div class="user-name">{{ user.name }}</div>
+                    <div class="user-role">Administrator</div>
+                </div>
+            </div>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="#" onclick="showSection('dashboard')" class="active"><i class="fas fa-home"></i> Dashboard</a>
+            <a href="#" onclick="showSection('members')"><i class="fas fa-users"></i> Members</a>
+            <a href="#" onclick="showSection('requests')"><i class="fas fa-file-alt"></i> Membership Requests</a>
+            <a href="#" onclick="showSection('payments')"><i class="fas fa-credit-card"></i> Payments</a>
+            <a href="#" onclick="showSection('plans')"><i class="fas fa-clipboard-list"></i> Manage Plans</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main-content" id="mainContent">
+        <div class="topbar">
+            <div class="hamburger" onclick="toggleSidebar()"><i class="fas fa-bars"></i></div>
+            <h1 id="pageTitle">Dashboard</h1>
+        </div>
+
+        <!-- ========== DASHBOARD ========== -->
+        <div id="dashboardSection" class="content-section active">
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-label">Total Members</div><div class="stat-value blue" id="sTotalMembers">0</div></div>
+                <div class="stat-card"><div class="stat-label">Active Memberships</div><div class="stat-value green" id="sActiveMemberships">0</div></div>
+                <div class="stat-card"><div class="stat-label">Pending Requests</div><div class="stat-value yellow" id="sPendingRequests">0</div></div>
+                <div class="stat-card"><div class="stat-label">Total Revenue</div><div class="stat-value purple" id="sTotalRevenue">₱0</div></div>
+            </div>
+            <div class="section-card">
+                <h2><i class="fas fa-chart-line"></i> Quick Actions</h2>
+                <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                    <button class="btn btn-blue" onclick="showSection('members')"><i class="fas fa-users"></i> View Members</button>
+                    <button class="btn btn-yellow" onclick="showSection('requests')"><i class="fas fa-file-alt"></i> Membership Requests</button>
+                    <button class="btn btn-green" onclick="showSection('payments')"><i class="fas fa-credit-card"></i> View Payments</button>
+                    <button class="btn btn-blue" onclick="showSection('plans')" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);"><i class="fas fa-clipboard-list"></i> Manage Plans</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== MEMBERS ========== -->
+        <div id="membersSection" class="content-section">
+            <div class="section-card">
+                <h2><i class="fas fa-users"></i> All Members</h2>
+                <div id="membersContent"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><h3>Loading...</h3></div></div>
+            </div>
+        </div>
+
+        <!-- ========== REQUESTS ========== -->
+        <div id="requestsSection" class="content-section">
+            <div class="section-card">
+                <h2><i class="fas fa-file-alt"></i> Membership Requests</h2>
+                <div id="requestsContent"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><h3>Loading...</h3></div></div>
+            </div>
+        </div>
+
+        <!-- ========== PAYMENTS ========== -->
+        <div id="paymentsSection" class="content-section">
+            <div class="section-card">
+                <h2><i class="fas fa-credit-card"></i> Payment Records</h2>
+                <div style="margin-bottom:20px;">
+                    <select id="paymentFilter" onchange="loadPayments()" style="padding:10px 16px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);border-radius:10px;color:#e2e8f0;font-family:'Inter',sans-serif;">
+                        <option value="all">All Payments</option>
+                        <option value="paid">Paid</option>
+                        <option value="pending">Pending</option>
+                    </select>
+                </div>
+                <div id="paymentsContent"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><h3>Loading...</h3></div></div>
+            </div>
+        </div>
+
+        <!-- ========== PLANS ========== -->
+        <div id="plansSection" class="content-section">
+            <div class="section-card">
+                <h2 style="justify-content:space-between;"><span><i class="fas fa-clipboard-list"></i> Membership Plans</span>
+                    <button class="btn btn-green" onclick="openCreatePlan()"><i class="fas fa-plus"></i> Add Plan</button>
+                </h2>
+                <div id="plansContent"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><h3>Loading...</h3></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT MEMBER MODAL -->
+<div class="modal-overlay" id="editMemberModal">
+    <div class="modal">
+        <button class="close-btn" onclick="closeModal('editMemberModal')">&times;</button>
+        <h3><i class="fas fa-user-edit"></i> Edit Member</h3>
+        <input type="hidden" id="editMemberId">
+        <div class="form-group"><label>First Name</label><input type="text" id="editFirstName"></div>
+        <div class="form-group"><label>Last Name</label><input type="text" id="editLastName"></div>
+        <div class="form-group"><label>Email</label><input type="email" id="editEmail"></div>
+        <div class="form-group"><label>Phone</label><input type="tel" id="editPhone"></div>
+        <div class="form-group"><label>Gender</label>
+            <select id="editGender"><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option></select>
+        </div>
+        <div class="form-group"><label>Status</label>
+            <select id="editStatus"><option value="active">Active</option><option value="inactive">Inactive</option></select>
+        </div>
+        <button class="btn btn-blue btn-lg" style="width:100%" onclick="saveEditMember()"><i class="fas fa-save"></i> Save Changes</button>
+    </div>
+</div>
+
+<!-- EDIT APPLICATION MODAL -->
+<div class="modal-overlay" id="editAppModal">
+    <div class="modal">
+        <button class="close-btn" onclick="closeModal('editAppModal')">&times;</button>
+        <h3><i class="fas fa-edit"></i> Edit Application</h3>
+        <input type="hidden" id="editAppId">
+        <div class="form-group"><label>Full Name</label><input type="text" id="editAppName"></div>
+        <div class="form-group"><label>Phone</label><input type="tel" id="editAppPhone"></div>
+        <div class="form-group"><label>Gender</label>
+            <select id="editAppGender"><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option></select>
+        </div>
+        <div class="form-group"><label>Age</label><input type="number" id="editAppAge"></div>
+        <div class="form-group"><label>Address</label><input type="text" id="editAppAddress"></div>
+        <div class="form-group"><label>Plan</label><select id="editAppPlan"></select></div>
+        <button class="btn btn-blue btn-lg" style="width:100%" onclick="saveEditApp()"><i class="fas fa-save"></i> Save Changes</button>
+    </div>
+</div>
+
+<!-- CREATE/EDIT PLAN MODAL -->
+<div class="modal-overlay" id="planModal">
+    <div class="modal">
+        <button class="close-btn" onclick="closeModal('planModal')">&times;</button>
+        <h3 id="planModalTitle"><i class="fas fa-clipboard-list"></i> Create Plan</h3>
+        <input type="hidden" id="editPlanId">
+        <div class="form-group"><label>Plan Name</label><input type="text" id="planName" placeholder="e.g. Monthly Plan"></div>
+        <div class="form-group"><label>Type</label>
+            <select id="planType"><option value="monthly">Monthly</option><option value="yearly">Yearly</option><option value="weekly">Weekly</option><option value="custom">Custom</option></select>
+        </div>
+        <div class="form-group"><label>Duration (Days)</label><input type="number" id="planDuration" placeholder="30" min="1"></div>
+        <div class="form-group"><label>Price (₱)</label><input type="number" id="planPrice" placeholder="500" step="0.01" min="0"></div>
+        <div class="form-group"><label>Description</label><input type="text" id="planDesc" placeholder="Optional description"></div>
+        <div class="form-group" id="planStatusGroup" style="display:none;"><label>Status</label>
+            <select id="planStatus"><option value="active">Active</option><option value="inactive">Inactive</option></select>
+        </div>
+        <button class="btn btn-blue btn-lg" style="width:100%" onclick="savePlan()"><i class="fas fa-save"></i> Save Plan</button>
+    </div>
+</div>
+
+<script src="/static/script.js"></script>
+<script>
+    // ===== STATS =====
+    async function loadStats() {
+        try {
+            const res = await fetch('/api/admin/stats');
+            const s = await res.json();
+            document.getElementById('sTotalMembers').textContent = s.total_members;
+            document.getElementById('sActiveMemberships').textContent = s.active_memberships;
+            document.getElementById('sPendingRequests').textContent = s.pending_requests;
+            document.getElementById('sTotalRevenue').textContent = formatPeso(s.total_revenue);
+        } catch(e) { console.error('Stats error:', e); }
+    }
+
+    // ===== MEMBERS =====
+    async function loadMembers() {
+        const c = document.getElementById('membersContent');
+        try {
+            const res = await fetch('/api/admin/members');
+            const members = await res.json();
+            if (!members.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-users"></i><h3>No members yet</h3></div>'; return; }
+            let html = '<div class="table-wrap"><table><tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Gender</th><th>Status</th><th>Joined</th><th>Actions</th></tr>';
+            members.forEach(m => {
+                const badge = m.status === 'active' ? 'badge-active' : 'badge-inactive';
+                html += `<tr>
+                    <td>${m.member_id}</td>
+                    <td><strong>${m.first_name} ${m.last_name}</strong></td>
+                    <td>${m.email || '--'}</td>
+                    <td>${m.phone || '--'}</td>
+                    <td>${m.gender || '--'}</td>
+                    <td><span class="badge ${badge}">${m.status}</span></td>
+                    <td>${formatDate(m.join_date)}</td>
+                    <td style="display:flex;gap:6px;">
+                        <button class="btn btn-yellow btn-sm" onclick='openEditMember(${JSON.stringify(m)})'><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-red btn-sm" onclick="deleteMember(${m.member_id})"><i class="fas fa-trash"></i></button>
+                    </td></tr>`;
+            });
+            html += '</table></div>';
+            c.innerHTML = html;
+        } catch(e) { c.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error</h3></div>'; }
+    }
+
+    function openEditMember(m) {
+        document.getElementById('editMemberId').value = m.member_id;
+        document.getElementById('editFirstName').value = m.first_name;
+        document.getElementById('editLastName').value = m.last_name;
+        document.getElementById('editEmail').value = m.email || '';
+        document.getElementById('editPhone').value = m.phone || '';
+        document.getElementById('editGender').value = m.gender || 'Other';
+        document.getElementById('editStatus').value = m.status;
+        openModal('editMemberModal');
+    }
+
+    async function saveEditMember() {
+        const id = document.getElementById('editMemberId').value;
+        const payload = {
+            first_name: document.getElementById('editFirstName').value,
+            last_name: document.getElementById('editLastName').value,
+            email: document.getElementById('editEmail').value,
+            phone: document.getElementById('editPhone').value,
+            gender: document.getElementById('editGender').value,
+            status: document.getElementById('editStatus').value
+        };
+        try {
+            const res = await fetch(`/api/admin/members/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            const data = await res.json();
+            if (res.ok) { showToast(data.message); closeModal('editMemberModal'); loadMembers(); loadStats(); }
+            else showToast(data.error, 'error');
+        } catch(e) { showToast('Update failed', 'error'); }
+    }
+
+    async function deleteMember(id) {
+        if (!confirm('Are you sure you want to delete this member? This will remove all their data.')) return;
+        try {
+            const res = await fetch(`/api/admin/members/${id}`, { method:'DELETE' });
+            const data = await res.json();
+            if (res.ok) { showToast(data.message); loadMembers(); loadStats(); }
+            else showToast(data.error, 'error');
+        } catch(e) { showToast('Delete failed', 'error'); }
+    }
+
+    // ===== MEMBERSHIP REQUESTS =====
+    async function loadRequests() {
+        const c = document.getElementById('requestsContent');
+        try {
+            const res = await fetch('/api/admin/pending-applications');
+            const apps = await res.json();
+            if (!apps.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-file-alt"></i><h3>No applications</h3><p>Membership requests will appear here</p></div>'; return; }
+            let html = '<div class="table-wrap"><table><tr><th>Name</th><th>Phone</th><th>Plan</th><th>Price</th><th>Method</th><th>Payment</th><th>Status</th><th>Date</th><th>Actions</th></tr>';
+            apps.forEach(a => {
+                const badgeClass = a.status === 'pending' ? 'badge-pending' : a.status === 'approved' ? 'badge-approved' : 'badge-rejected';
+                const payBadge = a.payment_status === 'paid' ? 'badge-paid' : 'badge-pending';
+                const isPaid = a.payment_status === 'paid';
+                const methodLabel = a.payment_method === 'online' ? '<i class="fas fa-globe" style="color:#10b981;"></i> Online' : a.payment_method === 'walkin' ? '<i class="fas fa-store" style="color:#fbbf24;"></i> Walk-in' : '--';
+                let actions = '';
+                if (a.status === 'pending') {
+                    if (isPaid) {
+                        actions = `
+                            <button class="btn btn-green btn-sm" onclick="approveApp(${a.application_id})" title="Approve"><i class="fas fa-check"></i> Approve</button>
+                            <button class="btn btn-yellow btn-sm" onclick='openEditApp(${JSON.stringify(a).replace(/'/g,"&#39;")})' title="Edit"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-red btn-sm" onclick="rejectApp(${a.application_id})" title="Reject"><i class="fas fa-times"></i></button>
+                        `;
+                    } else {
+                        actions = `
+                            <button class="btn btn-green btn-sm" disabled style="opacity:0.4;cursor:not-allowed;" title="Payment must be Paid first"><i class="fas fa-lock"></i> Approve</button>
+                            <button class="btn btn-blue btn-sm" onclick="markPaidFromRequest(${a.pay_id})" title="Mark as Paid"><i class="fas fa-money-bill-wave"></i> Mark Paid</button>
+                            <button class="btn btn-yellow btn-sm" onclick='openEditApp(${JSON.stringify(a).replace(/'/g,"&#39;")})' title="Edit"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-red btn-sm" onclick="rejectApp(${a.application_id})" title="Reject"><i class="fas fa-times"></i></button>
+                        `;
+                    }
+                } else {
+                    actions = `<span style="color:#64748b;font-size:12px;">${a.status}</span>`;
+                }
+                html += `<tr>
+                    <td><strong>${a.full_name}</strong></td>
+                    <td>${a.phone}</td>
+                    <td>${a.plan_name} (${a.plan_type})</td>
+                    <td>${formatPeso(a.price)}</td>
+                    <td>${methodLabel}</td>
+                    <td><span class="badge ${payBadge}">${a.payment_status}</span></td>
+                    <td><span class="badge ${badgeClass}">${a.status}</span></td>
+                    <td>${formatDate(a.applied_at)}</td>
+                    <td style="display:flex;gap:6px;flex-wrap:wrap;">${actions}</td></tr>`;
+            });
+            html += '</table></div>';
+            c.innerHTML = html;
+        } catch(e) { c.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error</h3></div>'; }
+    }
+
+    async function markPaidFromRequest(paymentId) {
+        if (!paymentId) { showToast('No payment record found', 'error'); return; }
+        if (!confirm('Mark this payment as Paid? This confirms the member has paid at the counter.')) return;
+        try {
+            const res = await fetch(`/api/admin/payment/${paymentId}/mark-paid`, { method:'POST' });
+            const data = await res.json();
+            if (res.ok) { showToast(data.message); loadRequests(); loadPayments(); loadStats(); }
+            else showToast(data.error, 'error');
+        } catch(e) { showToast('Failed to update payment', 'error'); }
+    }
+
+    async function approveApp(id) {
+        if (!confirm('Approve this application? This will activate their membership.')) return;
+        try {
+            const res = await fetch(`/api/admin/application/${id}/approve`, { method:'POST' });
+            const data = await res.json();
+            if (res.ok) { showToast(data.message); loadRequests(); loadStats(); }
+            else showToast(data.error, 'error');
+        } catch(e) { showToast('Approve failed', 'error'); }
+    }
+
+    async function rejectApp(id) {
+        if (!confirm('Reject this application?')) return;
+        try {
+            const res = await fetch(`/api/admin/application/${id}/reject`, { method:'POST' });
+            const data = await res.json();
+            if (res.ok) { showToast(data.message); loadRequests(); loadStats(); }
+            else showToast(data.error, 'error');
+        } catch(e) { showToast('Reject failed', 'error'); }
+    }
+
+    async function openEditApp(a) {
+        document.getElementById('editAppId').value = a.application_id;
+        document.getElementById('editAppName').value = a.full_name;
+        document.getElementById('editAppPhone').value = a.phone;
+        document.getElementById('editAppGender').value = a.gender;
+        document.getElementById('editAppAge').value = a.age;
+        document.getElementById('editAppAddress').value = a.address || '';
+        // Load plans for select
+        try {
+            const res = await fetch('/api/plans');
+            const data = await res.json();
+            const sel = document.getElementById('editAppPlan');
+            sel.innerHTML = (data.plans||[]).map(p => `<option value="${p.plan_id}" ${p.plan_id===a.plan_id?'selected':''}>${p.plan_name} (${p.type}) - ${formatPeso(p.price)}</option>`).join('');
+        } catch(e) {}
+        openModal('editAppModal');
+    }
+
+    async function saveEditApp() {
+        const id = document.getElementById('editAppId').value;
+        const payload = {
+            full_name: document.getElementById('editAppName').value,
+            phone: document.getElementById('editAppPhone').value,
+            gender: document.getElementById('editAppGender').value,
+            age: parseInt(document.getElementById('editAppAge').value),
+            address: document.getElementById('editAppAddress').value,
+            plan_id: parseInt(document.getElementById('editAppPlan').value)
+        };
+        try {
+            const res = await fetch(`/api/admin/application/${id}/edit`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            const data = await res.json();
+            if (res.ok) { showToast(data.message); closeModal('editAppModal'); loadRequests(); }
+            else showToast(data.error, 'error');
+        } catch(e) { showToast('Update failed', 'error'); }
+    }
+
+    // ===== PAYMENTS =====
+    async function loadPayments() {
+        const c = document.getElementById('paymentsContent');
+        const filter = document.getElementById('paymentFilter').value;
+        try {
+            const params = filter !== 'all' ? `?status=${filter}` : '';
+            const res = await fetch(`/api/admin/payments${params}`);
+            const payments = await res.json();
+            if (!payments.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-credit-card"></i><h3>No payments</h3><p>Payment records will appear here</p></div>'; return; }
+            let html = '<div class="table-wrap"><table><tr><th>ID</th><th>Member</th><th>Plan</th><th>Amount</th><th>Method</th><th>Date</th><th>Status</th><th>Actions</th></tr>';
+            payments.forEach(p => {
+                const badge = p.status === 'paid' ? 'badge-paid' : 'badge-pending';
+                const methodLabel = p.payment_method === 'online' ? '<i class="fas fa-globe" style="color:#10b981;"></i> Online' : p.payment_method === 'walkin' ? '<i class="fas fa-store" style="color:#fbbf24;"></i> Walk-in' : p.payment_method || '--';
+                const action = p.status === 'pending' ? `<button class="btn btn-blue btn-sm" onclick="markPaymentPaid(${p.payment_id})"><i class="fas fa-money-bill-wave"></i> Mark Paid</button>` : '<span style="color:#64748b;font-size:12px;">Completed</span>';
+                html += `<tr>
+                    <td>${p.payment_id}</td>
+                    <td><strong>${p.member_name}</strong></td>
+                    <td>${p.plan_name || '--'}</td>
+                    <td>${formatPeso(p.amount)}</td>
+                    <td>${methodLabel}</td>
+                    <td>${formatDate(p.payment_date)}</td>
+                    <td><span class="badge ${badge}">${p.status}</span></td>
+                    <td>${action}</td></tr>`;
+            });
+            html += '</table></div>';
+            c.innerHTML = html;
+        } catch(e) { c.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error</h3></div>'; }
+    }
+
+    async function markPaymentPaid(paymentId) {
+        if (!confirm('Mark this payment as Paid?')) return;
+        try {
+            const res = await fetch(`/api/admin/payment/${paymentId}/mark-paid`, { method:'POST' });
+            const data = await res.json();
+            if (res.ok) { showToast(data.message); loadPayments(); loadRequests(); loadStats(); }
+            else showToast(data.error, 'error');
+        } catch(e) { showToast('Failed to mark paid', 'error'); }
+    }
+
+    // ===== PLANS CRUD =====
+    async function loadPlans() {
+        const c = document.getElementById('plansContent');
+        try {
+            const res = await fetch('/api/admin/all-plans');
+            const plans = await res.json();
+            if (!plans.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-clipboard-list"></i><h3>No plans yet</h3><p>Create your first membership plan</p></div>'; return; }
+            let html = '<div class="table-wrap"><table><tr><th>ID</th><th>Name</th><th>Type</th><th>Duration</th><th>Price</th><th>Status</th><th>Actions</th></tr>';
+            plans.forEach(p => {
+                const badge = p.status === 'active' ? 'badge-active' : 'badge-inactive';
+                const toggleBtn = p.status === 'active'
+                    ? `<button class="btn btn-red btn-sm" onclick="togglePlanStatus(${p.plan_id},'deactivate')" title="Deactivate"><i class="fas fa-ban"></i></button>`
+                    : `<button class="btn btn-green btn-sm" onclick="togglePlanStatus(${p.plan_id},'activate')" title="Activate"><i class="fas fa-check"></i></button>`;
+                html += `<tr>
+                    <td>${p.plan_id}</td>
+                    <td><strong>${p.plan_name}</strong></td>
+                    <td>${p.type}</td>
+                    <td>${p.duration_days} days</td>
+                    <td>${formatPeso(p.price)}</td>
+                    <td><span class="badge ${badge}">${p.status}</span></td>
+                    <td style="display:flex;gap:6px;">
+                        <button class="btn btn-yellow btn-sm" onclick='openEditPlan(${JSON.stringify(p).replace(/'/g,"&#39;")})'><i class="fas fa-edit"></i></button>
+                        ${toggleBtn}
+                    </td></tr>`;
+            });
+            html += '</table></div>';
+            c.innerHTML = html;
+        } catch(e) { c.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error</h3></div>'; }
+    }
+
+    function openCreatePlan() {
+        document.getElementById('editPlanId').value = '';
+        document.getElementById('planName').value = '';
+        document.getElementById('planType').value = 'monthly';
+        document.getElementById('planDuration').value = '';
+        document.getElementById('planPrice').value = '';
+        document.getElementById('planDesc').value = '';
+        document.getElementById('planStatusGroup').style.display = 'none';
+        document.getElementById('planModalTitle').innerHTML = '<i class="fas fa-plus"></i> Create Plan';
+        openModal('planModal');
+    }
+
+    function openEditPlan(p) {
+        document.getElementById('editPlanId').value = p.plan_id;
+        document.getElementById('planName').value = p.plan_name;
+        document.getElementById('planType').value = p.type;
+        document.getElementById('planDuration').value = p.duration_days;
+        document.getElementById('planPrice').value = p.price;
+        document.getElementById('planDesc').value = p.description || '';
+        document.getElementById('planStatus').value = p.status;
+        document.getElementById('planStatusGroup').style.display = 'block';
+        document.getElementById('planModalTitle').innerHTML = '<i class="fas fa-edit"></i> Edit Plan';
+        openModal('planModal');
+    }
+
+    async function savePlan() {
+        const id = document.getElementById('editPlanId').value;
+        const payload = {
+            plan_name: document.getElementById('planName').value.trim(),
+            type: document.getElementById('planType').value,
+            duration_days: parseInt(document.getElementById('planDuration').value),
+            price: parseFloat(document.getElementById('planPrice').value),
+            description: document.getElementById('planDesc').value.trim(),
+            status: document.getElementById('planStatus').value
+        };
+        if (!payload.plan_name || !payload.duration_days || !payload.price) { showToast('Fill all required fields', 'error'); return; }
+        try {
+            const url = id ? `/api/admin/plans/${id}` : '/api/admin/plans';
+            const method = id ? 'PUT' : 'POST';
+            const res = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            const data = await res.json();
+            if (res.ok) { showToast(data.message); closeModal('planModal'); loadPlans(); }
+            else showToast(data.error, 'error');
+        } catch(e) { showToast('Save failed', 'error'); }
+    }
+
+    async function togglePlanStatus(id, action) {
+        const msg = action === 'deactivate' ? 'Deactivate this plan? Members won\'t be able to select it.' : 'Activate this plan?';
+        if (!confirm(msg)) return;
+        try {
+            const res = await fetch(`/api/admin/plans/${id}/${action}`, { method:'POST' });
+            const data = await res.json();
+            if (res.ok) { showToast(data.message); loadPlans(); }
+            else showToast(data.error, 'error');
+        } catch(e) { showToast('Action failed', 'error'); }
+    }
+
+    // ===== SECTION SWITCHING =====
+    const origShowSection = showSection;
+    showSection = function(name) {
+        origShowSection(name);
+        document.getElementById('pageTitle').textContent =
+            {dashboard:'Dashboard',members:'Members',requests:'Membership Requests',payments:'Payments',plans:'Manage Plans'}[name] || name;
+        if (name === 'dashboard') loadStats();
+        else if (name === 'members') loadMembers();
+        else if (name === 'requests') loadRequests();
+        else if (name === 'payments') loadPayments();
+        else if (name === 'plans') loadPlans();
+    };
+
+    // ===== INIT =====
+    document.addEventListener('DOMContentLoaded', loadStats);
+</script>
+</body>
+</html>
