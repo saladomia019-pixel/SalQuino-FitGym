@@ -420,7 +420,8 @@
                     </div>`;
                 checkinArea.style.display = 'block';
 
-                const today = new Date().toISOString().split('T')[0];
+                const d = new Date();
+                const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
                 const checkedToday = checkins.some(c => c.checkin_date === today);
                 if (checkedToday) {
                     document.getElementById('checkinBtn').disabled = true;
@@ -558,7 +559,7 @@
         const firstDay = new Date(calendarYear, calendarMonth, 1).getDay();
         const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
         const today = new Date();
-        const todayStr = today.toISOString().split('T')[0];
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
 
         let html = `<div class="cal-header">
             <button class="cal-nav" onclick="calendarMonth--;if(calendarMonth<0){calendarMonth=11;calendarYear--;}loadCheckins();"><i class="fas fa-chevron-left"></i></button>
@@ -977,13 +978,18 @@
                     </div>
                 </div>
                 <div style="margin-top:24px;border-top:1px solid rgba(148,163,184,0.1);padding-top:24px;">
-                    <h3 style="color:#fff;font-size:16px;margin-bottom:16px;"><i class="fas fa-edit" style="color:#3b82f6;"></i> Edit Profile</h3>
-                    <div style="max-width:500px;">
+                    <button class="btn btn-blue btn-sm" onclick="document.getElementById('editProfileForm').style.display='block'" style="margin-bottom:16px;">
+                        <i class="fas fa-edit"></i> Edit Profile
+                    </button>
+                    <div id="editProfileForm" style="display:none;max-width:500px;">
                         <div class="form-group"><label>First Name</label><input type="text" id="editProfFirst" value="${p.first_name}"></div>
                         <div class="form-group"><label>Last Name</label><input type="text" id="editProfLast" value="${p.last_name}"></div>
                         <div class="form-group"><label>Phone</label><input type="tel" id="editProfPhone" value="${p.phone || ''}" maxlength="11"></div>
                         <div class="form-group"><label>Height (cm)</label><input type="number" id="editProfHeight" value="${p.height_cm || ''}" placeholder="e.g. 175" min="50" max="300"></div>
-                        <button class="btn btn-blue btn-lg" onclick="saveProfile()" style="margin-top:8px;"><i class="fas fa-save"></i> Save Changes</button>
+                        <div style="display:flex;gap:10px;margin-top:8px;">
+                            <button class="btn btn-blue btn-lg" style="flex:1;" onclick="saveProfile()"><i class="fas fa-save"></i> Save Changes</button>
+                            <button class="btn btn-red btn-lg" style="flex:1;" onclick="document.getElementById('editProfileForm').style.display='none'"><i class="fas fa-times"></i> Cancel</button>
+                        </div>
                     </div>
                 </div>`;
         } catch(e) { c.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error loading profile</h3></div>'; }

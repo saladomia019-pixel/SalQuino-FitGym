@@ -193,14 +193,15 @@
     </div>
 </div>
 
-<!-- CREATE ANNOUNCEMENT MODAL -->
+<!-- CREATE/EDIT ANNOUNCEMENT MODAL -->
 <div class="modal-overlay" id="announcementModal">
     <div class="modal">
         <button class="close-btn" onclick="closeModal('announcementModal')">&times;</button>
-        <h3><i class="fas fa-bullhorn"></i> Post Announcement</h3>
+        <h3 id="annModalTitle"><i class="fas fa-bullhorn"></i> Post Announcement</h3>
+        <input type="hidden" id="editAnnId">
         <div class="form-group"><label>Title</label><input type="text" id="annTitle" placeholder="e.g. Holiday Closure"></div>
         <div class="form-group"><label>Content</label><textarea id="annContent" placeholder="Announcement details..." style="width:100%;height:100px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);border-radius:10px;color:#fff;padding:12px;font-family:'Inter',sans-serif;resize:vertical;"></textarea></div>
-        <button class="btn btn-blue btn-lg" style="width:100%" onclick="saveAnnouncement()"><i class="fas fa-paper-plane"></i> Post</button>
+        <button class="btn btn-blue btn-lg" style="width:100%" onclick="saveAnnouncement()"><i class="fas fa-save"></i> Save</button>
     </div>
 </div>
 
@@ -538,12 +539,14 @@
                 const toggleBtn = a.status === 'active'
                     ? `<button class="btn btn-yellow btn-sm" onclick="toggleAnnouncement(${a.id})" title="Mark Inactive"><i class="fas fa-eye-slash"></i> Hide</button>`
                     : `<button class="btn btn-green btn-sm" onclick="toggleAnnouncement(${a.id})" title="Mark Active"><i class="fas fa-eye"></i> Show</button>`;
+                const editBtn = `<button class="btn btn-blue btn-sm" onclick='openEditAnnouncement(${JSON.stringify(a).replace(/'/g,"&#39;")})' title="Edit"><i class="fas fa-edit"></i> Edit</button>`;
+                const deleteBtn = `<button class="btn btn-red btn-sm" onclick="deleteAnnouncement(${a.id})" title="Delete"><i class="fas fa-trash"></i> Delete</button>`;
                 html += `<tr>
                     <td><strong>${a.title}</strong></td>
                     <td style="max-width:250px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${a.content}">${a.content}</td>
                     <td><span class="badge ${badge}">${a.status}</span></td>
                     <td>${formatDate(a.created_at)}</td>
-                    <td>${toggleBtn}</td></tr>`;
+                    <td style="display:flex;gap:6px;">${toggleBtn}${editBtn}${deleteBtn}</td></tr>`;
             });
             html += '</table></div>';
             c.innerHTML = html;
@@ -551,19 +554,32 @@
     }
 
     function openCreateAnnouncement() {
+        document.getElementById('editAnnId').value = '';
         document.getElementById('annTitle').value = '';
         document.getElementById('annContent').value = '';
+        document.getElementById('annModalTitle').innerHTML = '<i class="fas fa-bullhorn"></i> Post Announcement';
+        openModal('announcementModal');
+    }
+
+    function openEditAnnouncement(a) {
+        document.getElementById('editAnnId').value = a.id;
+        document.getElementById('annTitle').value = a.title;
+        document.getElementById('annContent').value = a.content;
+        document.getElementById('annModalTitle').innerHTML = '<i class="fas fa-edit"></i> Edit Announcement';
         openModal('announcementModal');
     }
 
     async function saveAnnouncement() {
+        const id = document.getElementById('editAnnId').value;
         const payload = {
             title: document.getElementById('annTitle').value.trim(),
             content: document.getElementById('annContent').value.trim()
         };
         if (!payload.title || !payload.content) { showToast('Please fill all fields', 'error'); return; }
         try {
-            const res = await fetch('/api/admin/announcements', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            const url = id ? `/api/admin/announcements/${id}` : '/api/admin/announcements';
+            const method = id ? 'PUT' : 'POST';
+            const res = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
             const data = await res.json();
             if (res.ok) { showToast(data.message); closeModal('announcementModal'); loadAnnouncements(); }
             else showToast(data.error, 'error');
@@ -577,6 +593,16 @@
             if (res.ok) { showToast(data.message); loadAnnouncements(); }
             else showToast(data.error, 'error');
         } catch(e) { showToast('Action failed', 'error'); }
+    }
+
+    async function deleteAnnouncement(id) {
+        if (!confirm('Are you sure you want to delete this announcement?')) return;
+        try {
+            const res = await fetch(`/api/admin/announcements/${id}`, { method:'DELETE' });
+            const data = await res.json();
+            if (res.ok) { showToast(data.message); loadAnnouncements(); }
+            else showToast(data.error, 'error');
+        } catch(e) { showToast('Delete failed', 'error'); }
     }
 
     // ===== ACTIVITY LOG =====

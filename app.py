@@ -1183,6 +1183,42 @@ def admin_create_announcement():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/admin/announcements/<int:announcement_id>', methods=['PUT'])
+@admin_required
+def admin_update_announcement(announcement_id):
+    data = request.get_json()
+    if not data or not data.get('title') or not data.get('content'):
+        return jsonify({"error": "Title and content are required"}), 400
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE announcements SET title=%s, content=%s WHERE id=%s",
+                       (data['title'], data['content'], announcement_id))
+        conn.commit()
+        cursor.close(); conn.close()
+        log_admin_activity(session['user_id'], 'Update Announcement', f"ID: {announcement_id}")
+        return jsonify({"message": "Announcement updated successfully!"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/admin/announcements/<int:announcement_id>', methods=['DELETE'])
+@admin_required
+def admin_delete_announcement(announcement_id):
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM announcements WHERE id=%s", (announcement_id,))
+        conn.commit()
+        cursor.close(); conn.close()
+        log_admin_activity(session['user_id'], 'Delete Announcement', f"ID: {announcement_id}")
+        return jsonify({"message": "Announcement deleted successfully!"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/admin/announcements/<int:announcement_id>/toggle', methods=['POST'])
 @admin_required
 def admin_toggle_announcement(announcement_id):
