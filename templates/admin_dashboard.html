@@ -29,6 +29,8 @@
             <a href="#" onclick="showSection('requests')"><i class="fas fa-file-alt"></i> Membership Requests</a>
             <a href="#" onclick="showSection('payments')"><i class="fas fa-credit-card"></i> Payments</a>
             <a href="#" onclick="showSection('plans')"><i class="fas fa-clipboard-list"></i> Manage Plans</a>
+            <a href="#" onclick="showSection('announcements')"><i class="fas fa-bullhorn"></i> Announcements</a>
+            <a href="#" onclick="showSection('logs')"><i class="fas fa-history"></i> Activity Log</a>
         </nav>
         <div class="sidebar-footer">
             <a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -57,6 +59,8 @@
                     <button class="btn btn-yellow" onclick="showSection('requests')"><i class="fas fa-file-alt"></i> Membership Requests</button>
                     <button class="btn btn-green" onclick="showSection('payments')"><i class="fas fa-credit-card"></i> View Payments</button>
                     <button class="btn btn-blue" onclick="showSection('plans')" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);"><i class="fas fa-clipboard-list"></i> Manage Plans</button>
+                    <button class="btn btn-yellow" onclick="showSection('announcements')"><i class="fas fa-bullhorn"></i> Announcements</button>
+                    <button class="btn btn-blue" onclick="showSection('logs')"><i class="fas fa-history"></i> Activity Log</button>
                 </div>
             </div>
         </div>
@@ -64,7 +68,9 @@
         <!-- ========== MEMBERS ========== -->
         <div id="membersSection" class="content-section">
             <div class="section-card">
-                <h2><i class="fas fa-users"></i> All Members</h2>
+                <h2 style="justify-content:space-between;"><span><i class="fas fa-users"></i> All Members</span>
+                    <button class="btn btn-blue btn-sm" onclick="exportTableToCSV('membersTable', 'members_export.csv')"><i class="fas fa-download"></i> Export CSV</button>
+                </h2>
                 <div id="membersContent"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><h3>Loading...</h3></div></div>
             </div>
         </div>
@@ -72,7 +78,9 @@
         <!-- ========== REQUESTS ========== -->
         <div id="requestsSection" class="content-section">
             <div class="section-card">
-                <h2><i class="fas fa-file-alt"></i> Membership Requests</h2>
+                <h2 style="justify-content:space-between;"><span><i class="fas fa-file-alt"></i> Membership Requests</span>
+                    <button class="btn btn-blue btn-sm" onclick="exportTableToCSV('requestsTable', 'requests_export.csv')"><i class="fas fa-download"></i> Export CSV</button>
+                </h2>
                 <div id="requestsContent"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><h3>Loading...</h3></div></div>
             </div>
         </div>
@@ -80,7 +88,9 @@
         <!-- ========== PAYMENTS ========== -->
         <div id="paymentsSection" class="content-section">
             <div class="section-card">
-                <h2><i class="fas fa-credit-card"></i> Payment Records</h2>
+                <h2 style="justify-content:space-between;"><span><i class="fas fa-credit-card"></i> Payment Records</span>
+                    <button class="btn btn-blue btn-sm" onclick="exportTableToCSV('paymentsTable', 'payments_export.csv')"><i class="fas fa-download"></i> Export CSV</button>
+                </h2>
                 <div style="margin-bottom:20px;">
                     <select id="paymentFilter" onchange="loadPayments()" style="padding:10px 16px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);border-radius:10px;color:#e2e8f0;font-family:'Inter',sans-serif;">
                         <option value="all">All Payments</option>
@@ -96,9 +106,30 @@
         <div id="plansSection" class="content-section">
             <div class="section-card">
                 <h2 style="justify-content:space-between;"><span><i class="fas fa-clipboard-list"></i> Membership Plans</span>
-                    <button class="btn btn-green" onclick="openCreatePlan()"><i class="fas fa-plus"></i> Add Plan</button>
+                    <div>
+                        <button class="btn btn-blue btn-sm" onclick="exportTableToCSV('plansTable', 'plans_export.csv')" style="margin-right:8px;"><i class="fas fa-download"></i> Export CSV</button>
+                        <button class="btn btn-green btn-sm" onclick="openCreatePlan()"><i class="fas fa-plus"></i> Add Plan</button>
+                    </div>
                 </h2>
                 <div id="plansContent"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><h3>Loading...</h3></div></div>
+            </div>
+        </div>
+
+        <!-- ========== ANNOUNCEMENTS ========== -->
+        <div id="announcementsSection" class="content-section">
+            <div class="section-card">
+                <h2 style="justify-content:space-between;"><span><i class="fas fa-bullhorn"></i> Gym Announcements</span>
+                    <button class="btn btn-green btn-sm" onclick="openCreateAnnouncement()"><i class="fas fa-plus"></i> Post Announcement</button>
+                </h2>
+                <div id="announcementsContent"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><h3>Loading...</h3></div></div>
+            </div>
+        </div>
+
+        <!-- ========== ACTIVITY LOG ========== -->
+        <div id="logsSection" class="content-section">
+            <div class="section-card">
+                <h2><i class="fas fa-history"></i> Admin Activity Log</h2>
+                <div id="logsContent"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><h3>Loading...</h3></div></div>
             </div>
         </div>
     </div>
@@ -162,6 +193,17 @@
     </div>
 </div>
 
+<!-- CREATE ANNOUNCEMENT MODAL -->
+<div class="modal-overlay" id="announcementModal">
+    <div class="modal">
+        <button class="close-btn" onclick="closeModal('announcementModal')">&times;</button>
+        <h3><i class="fas fa-bullhorn"></i> Post Announcement</h3>
+        <div class="form-group"><label>Title</label><input type="text" id="annTitle" placeholder="e.g. Holiday Closure"></div>
+        <div class="form-group"><label>Content</label><textarea id="annContent" placeholder="Announcement details..." style="width:100%;height:100px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);border-radius:10px;color:#fff;padding:12px;font-family:'Inter',sans-serif;resize:vertical;"></textarea></div>
+        <button class="btn btn-blue btn-lg" style="width:100%" onclick="saveAnnouncement()"><i class="fas fa-paper-plane"></i> Post</button>
+    </div>
+</div>
+
 <script src="/static/script.js"></script>
 <script>
     // ===== STATS =====
@@ -182,8 +224,8 @@
         try {
             const res = await fetch('/api/admin/members');
             const members = await res.json();
-            if (!members.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-users"></i><h3>No members yet</h3></div>'; return; }
-            let html = '<div class="table-wrap"><table><tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Gender</th><th>Status</th><th>Joined</th><th>Actions</th></tr>';
+            if (!members.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-users"></i><h3>No members found</h3></div>'; return; }
+            let html = '<div class="table-wrap"><table id="membersTable"><tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Gender</th><th>Status</th><th>Joined</th><th>Actions</th></tr>';
             members.forEach(m => {
                 const badge = m.status === 'active' ? 'badge-active' : 'badge-inactive';
                 html += `<tr>
@@ -250,7 +292,7 @@
             const res = await fetch('/api/admin/pending-applications');
             const apps = await res.json();
             if (!apps.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-file-alt"></i><h3>No applications</h3><p>Membership requests will appear here</p></div>'; return; }
-            let html = '<div class="table-wrap"><table><tr><th>Name</th><th>Phone</th><th>Plan</th><th>Price</th><th>Method</th><th>Payment</th><th>Status</th><th>Date</th><th>Actions</th></tr>';
+            let html = '<div class="table-wrap"><table id="requestsTable"><tr><th>Name</th><th>Phone</th><th>Plan</th><th>Price</th><th>Method</th><th>Payment</th><th>Status</th><th>Date</th><th>Actions</th></tr>';
             apps.forEach(a => {
                 const badgeClass = a.status === 'pending' ? 'badge-pending' : a.status === 'approved' ? 'badge-approved' : 'badge-rejected';
                 const payBadge = a.payment_status === 'paid' ? 'badge-paid' : 'badge-pending';
@@ -365,8 +407,8 @@
             const params = filter !== 'all' ? `?status=${filter}` : '';
             const res = await fetch(`/api/admin/payments${params}`);
             const payments = await res.json();
-            if (!payments.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-credit-card"></i><h3>No payments</h3><p>Payment records will appear here</p></div>'; return; }
-            let html = '<div class="table-wrap"><table><tr><th>ID</th><th>Member</th><th>Plan</th><th>Amount</th><th>Method</th><th>Date</th><th>Status</th><th>Actions</th></tr>';
+            if (!payments.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-credit-card"></i><h3>No payments found</h3></div>'; return; }
+            let html = '<div class="table-wrap"><table id="paymentsTable"><tr><th>ID</th><th>Member</th><th>Plan</th><th>Amount</th><th>Method</th><th>Status</th><th>Date</th></tr>';
             payments.forEach(p => {
                 const badge = p.status === 'paid' ? 'badge-paid' : 'badge-pending';
                 const methodLabel = p.payment_method === 'online' ? '<i class="fas fa-globe" style="color:#10b981;"></i> Online' : p.payment_method === 'walkin' ? '<i class="fas fa-store" style="color:#fbbf24;"></i> Walk-in' : p.payment_method || '--';
@@ -403,7 +445,7 @@
             const res = await fetch('/api/admin/all-plans');
             const plans = await res.json();
             if (!plans.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-clipboard-list"></i><h3>No plans yet</h3><p>Create your first membership plan</p></div>'; return; }
-            let html = '<div class="table-wrap"><table><tr><th>ID</th><th>Name</th><th>Type</th><th>Duration</th><th>Price</th><th>Status</th><th>Actions</th></tr>';
+            let html = '<div class="table-wrap"><table id="plansTable"><tr><th>ID</th><th>Name</th><th>Type</th><th>Duration</th><th>Price</th><th>Status</th><th>Actions</th></tr>';
             plans.forEach(p => {
                 const badge = p.status === 'active' ? 'badge-active' : 'badge-inactive';
                 const toggleBtn = p.status === 'active'
@@ -483,17 +525,122 @@
         } catch(e) { showToast('Action failed', 'error'); }
     }
 
+    // ===== ANNOUNCEMENTS =====
+    async function loadAnnouncements() {
+        const c = document.getElementById('announcementsContent');
+        try {
+            const res = await fetch('/api/admin/announcements');
+            const anns = await res.json();
+            if (!anns.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-bullhorn"></i><h3>No announcements</h3><p>Post your first gym announcement</p></div>'; return; }
+            let html = '<div class="table-wrap"><table><tr><th>Title</th><th>Content</th><th>Status</th><th>Date Posted</th><th>Actions</th></tr>';
+            anns.forEach(a => {
+                const badge = a.status === 'active' ? 'badge-active' : 'badge-inactive';
+                const toggleBtn = a.status === 'active'
+                    ? `<button class="btn btn-yellow btn-sm" onclick="toggleAnnouncement(${a.id})" title="Mark Inactive"><i class="fas fa-eye-slash"></i> Hide</button>`
+                    : `<button class="btn btn-green btn-sm" onclick="toggleAnnouncement(${a.id})" title="Mark Active"><i class="fas fa-eye"></i> Show</button>`;
+                html += `<tr>
+                    <td><strong>${a.title}</strong></td>
+                    <td style="max-width:250px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${a.content}">${a.content}</td>
+                    <td><span class="badge ${badge}">${a.status}</span></td>
+                    <td>${formatDate(a.created_at)}</td>
+                    <td>${toggleBtn}</td></tr>`;
+            });
+            html += '</table></div>';
+            c.innerHTML = html;
+        } catch(e) { c.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error loading</h3></div>'; }
+    }
+
+    function openCreateAnnouncement() {
+        document.getElementById('annTitle').value = '';
+        document.getElementById('annContent').value = '';
+        openModal('announcementModal');
+    }
+
+    async function saveAnnouncement() {
+        const payload = {
+            title: document.getElementById('annTitle').value.trim(),
+            content: document.getElementById('annContent').value.trim()
+        };
+        if (!payload.title || !payload.content) { showToast('Please fill all fields', 'error'); return; }
+        try {
+            const res = await fetch('/api/admin/announcements', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            const data = await res.json();
+            if (res.ok) { showToast(data.message); closeModal('announcementModal'); loadAnnouncements(); }
+            else showToast(data.error, 'error');
+        } catch(e) { showToast('Save failed', 'error'); }
+    }
+
+    async function toggleAnnouncement(id) {
+        try {
+            const res = await fetch(`/api/admin/announcements/${id}/toggle`, { method:'POST' });
+            const data = await res.json();
+            if (res.ok) { showToast(data.message); loadAnnouncements(); }
+            else showToast(data.error, 'error');
+        } catch(e) { showToast('Action failed', 'error'); }
+    }
+
+    // ===== ACTIVITY LOG =====
+    async function loadLogs() {
+        const c = document.getElementById('logsContent');
+        try {
+            const res = await fetch('/api/admin/activity-logs');
+            const logs = await res.json();
+            if (!logs.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-history"></i><h3>No activity yet</h3></div>'; return; }
+            let html = '<div class="table-wrap"><table><tr><th>Time</th><th>Admin</th><th>Action</th><th>Description</th></tr>';
+            logs.forEach(l => {
+                html += `<tr>
+                    <td style="color:#94a3b8;font-size:13px;">${l.created_at}</td>
+                    <td><strong style="color:#60a5fa;">${l.username}</strong></td>
+                    <td><span class="badge badge-pending">${l.action_type}</span></td>
+                    <td>${l.description}</td>
+                </tr>`;
+            });
+            html += '</table></div>';
+            c.innerHTML = html;
+        } catch(e) { c.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error loading logs</h3></div>'; }
+    }
+
+    // ===== CSV EXPORT =====
+    function exportTableToCSV(tableId, filename) {
+        const table = document.getElementById(tableId);
+        if (!table) return;
+        let csv = [];
+        const rows = table.querySelectorAll('tr');
+        for (let i = 0; i < rows.length; i++) {
+            let row = [], cols = rows[i].querySelectorAll('td, th');
+            // Skip the "Actions" column (usually the last one)
+            const len = (i === 0) ? cols.length - 1 : cols.length - (tableId === 'paymentsTable' ? 0 : 1);
+            const numCols = tableId === 'paymentsTable' ? cols.length : cols.length - 1; // Payments table doesn't have Actions
+
+            for (let j = 0; j < numCols; j++) {
+                let text = cols[j].innerText.replace(/"/g, '""');
+                row.push('"' + text + '"');
+            }
+            csv.push(row.join(','));
+        }
+        const csvFile = new Blob([csv.join('\n')], {type: "text/csv"});
+        const downloadLink = document.createElement("a");
+        downloadLink.download = filename;
+        downloadLink.href = window.URL.createObjectURL(csvFile);
+        downloadLink.style.display = "none";
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+    }
+
     // ===== SECTION SWITCHING =====
     const origShowSection = showSection;
     showSection = function(name) {
         origShowSection(name);
         document.getElementById('pageTitle').textContent =
-            {dashboard:'Dashboard',members:'Members',requests:'Membership Requests',payments:'Payments',plans:'Manage Plans'}[name] || name;
+            {dashboard:'Dashboard',members:'Members',requests:'Membership Requests',payments:'Payments',plans:'Manage Plans',announcements:'Announcements',logs:'Activity Log'}[name] || name;
         if (name === 'dashboard') loadStats();
         else if (name === 'members') loadMembers();
         else if (name === 'requests') loadRequests();
         else if (name === 'payments') loadPayments();
         else if (name === 'plans') loadPlans();
+        else if (name === 'announcements') loadAnnouncements();
+        else if (name === 'logs') loadLogs();
     };
 
     // ===== INIT =====

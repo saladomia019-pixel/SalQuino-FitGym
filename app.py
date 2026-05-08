@@ -467,7 +467,7 @@ def get_my_profile():
         return jsonify({"error": "Database unavailable"}), 500
     try:
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT member_id, first_name, last_name, email, phone, gender, join_date, status FROM members WHERE member_id=%s",
+        cursor.execute("SELECT member_id, first_name, last_name, email, phone, gender, join_date, status, height_cm FROM members WHERE member_id=%s",
                        (session['user_id'],))
         member = cursor.fetchone()
         cursor.close(); conn.close()
@@ -489,13 +489,21 @@ def update_my_profile():
         first_name = data.get('first_name', '').strip()
         last_name = data.get('last_name', '').strip()
         phone = data.get('phone', '').strip()
+        height_cm = data.get('height_cm')
+
         if len(first_name) < 2 or len(last_name) < 2:
             return jsonify({"error": "Name must be at least 2 characters"}), 400
         if len(phone) != 11 or not phone.isdigit():
             return jsonify({"error": "Phone must be exactly 11 digits"}), 400
+
+        try:
+            height_val = float(height_cm) if height_cm else None
+        except ValueError:
+            height_val = None
+
         cursor = conn.cursor()
-        cursor.execute("UPDATE members SET first_name=%s, last_name=%s, phone=%s WHERE member_id=%s",
-                       (first_name, last_name, phone, session['user_id']))
+        cursor.execute("UPDATE members SET first_name=%s, last_name=%s, phone=%s, height_cm=%s WHERE member_id=%s",
+                       (first_name, last_name, phone, height_val, session['user_id']))
         cursor.close(); conn.close()
         session['name'] = f"{first_name} {last_name}"
         return jsonify({"message": "Profile updated successfully!"})
@@ -708,6 +716,18 @@ def renew_membership():
 #              ADMIN ROUTES
 # =============================================
 
+def log_admin_activity(admin_id, action_type, description):
+    conn = get_connection()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO admin_activity_logs (admin_id, action_type, description) VALUES (%s, %s, %s)",
+                           (admin_id, action_type, description))
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            logger.error(f"Failed to log admin activity: {e}")
+
 @app.route('/admin-dashboard')
 @admin_required
 def admin_dashboard():
@@ -767,6 +787,7 @@ def admin_edit_member(member_id):
         """, (data['first_name'], data['last_name'], data['email'],
               data['phone'], data['gender'], data['status'], member_id))
         cursor.close(); conn.close()
+        log_admin_activity(session['user_id'], 'Edit Member', f'Member ID: {member_id}')
         return jsonify({"message": "Member updated successfully"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -786,6 +807,7 @@ def admin_delete_member(member_id):
         cursor.execute("DELETE FROM membership_applications WHERE member_id=%s", (member_id,))
         cursor.execute("DELETE FROM members WHERE member_id=%s", (member_id,))
         cursor.close(); conn.close()
+        log_admin_activity(session['user_id'], 'Delete Member', f'Member ID: {member_id}')
         return jsonify({"message": "Member deleted successfully"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -871,6 +893,7 @@ def admin_approve(app_id):
 
         cursor.execute("UPDATE membership_applications SET status='approved' WHERE application_id=%s", (app_id,))
         cursor.close(); conn.close()
+        log_admin_activity(session['user_id'], 'Approve Membership', f'Application ID: {app_id}')
         return jsonify({"message": "Application approved! Membership activated."})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -898,6 +921,7 @@ def admin_reject(app_id):
 
         cursor.execute("UPDATE membership_applications SET status='rejected' WHERE application_id=%s", (app_id,))
         cursor.close(); conn.close()
+        log_admin_activity(session['user_id'], 'Reject Membership', f'Application ID: {app_id}')
         return jsonify({"message": "Application rejected."})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -918,6 +942,7 @@ def admin_edit_app(app_id):
         """, (data['full_name'], data['phone'], data['gender'],
               data['age'], data['address'], data['plan_id'], app_id))
         cursor.close(); conn.close()
+        log_admin_activity(session['user_id'], 'Edit Application', f'Application ID: {app_id}')
         return jsonify({"message": "Application updated."})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -937,6 +962,7 @@ def admin_mark_paid(payment_id):
             return jsonify({"error": "Payment not found or already paid"}), 404
         cursor.execute("UPDATE payments SET status='paid', payment_date=NOW() WHERE payment_id=%s", (payment_id,))
         cursor.close(); conn.close()
+        log_admin_activity(session['user_id'], 'Mark Payment Paid', f'Payment ID: {payment_id}')
         return jsonify({"message": "Payment marked as Paid successfully!"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -1018,6 +1044,7 @@ def admin_create_plan():
         """, (data['plan_name'], data['type'], int(data['duration_days']),
               float(data['price']), data.get('description', '')))
         cursor.close(); conn.close()
+        log_admin_activity(session['user_id'], 'Create Plan', f"Plan: {data['plan_name']}")
         return jsonify({"message": "Plan created successfully!"}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -1038,6 +1065,7 @@ def admin_update_plan(plan_id):
         """, (data['plan_name'], data['type'], int(data['duration_days']),
               float(data['price']), data.get('description', ''), data.get('status', 'active'), plan_id))
         cursor.close(); conn.close()
+        log_admin_activity(session['user_id'], 'Update Plan', f"Plan ID: {plan_id}")
         return jsonify({"message": "Plan updated successfully!"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -1052,6 +1080,7 @@ def admin_deactivate_plan(plan_id):
         cursor = conn.cursor()
         cursor.execute("UPDATE membership_plans SET status='inactive' WHERE plan_id=%s", (plan_id,))
         cursor.close(); conn.close()
+        log_admin_activity(session['user_id'], 'Deactivate Plan', f"Plan ID: {plan_id}")
         return jsonify({"message": "Plan deactivated successfully!"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -1066,7 +1095,113 @@ def admin_activate_plan(plan_id):
         cursor = conn.cursor()
         cursor.execute("UPDATE membership_plans SET status='active' WHERE plan_id=%s", (plan_id,))
         cursor.close(); conn.close()
+        log_admin_activity(session['user_id'], 'Activate Plan', f"Plan ID: {plan_id}")
         return jsonify({"message": "Plan activated successfully!"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# =============================================
+#              ADMIN ACTIVITY LOGS
+# =============================================
+
+@app.route('/api/admin/activity-logs', methods=['GET'])
+@admin_required
+def admin_activity_logs():
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT l.log_id, l.action_type, l.description, l.created_at, a.username
+            FROM admin_activity_logs l
+            JOIN admins a ON l.admin_id = a.admin_id
+            ORDER BY l.created_at DESC
+        """)
+        logs = cursor.fetchall()
+        cursor.close(); conn.close()
+        for log in logs:
+            log['created_at'] = str(log['created_at'])
+        return jsonify(logs)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# =============================================
+#              ANNOUNCEMENTS
+# =============================================
+
+@app.route('/api/announcements', methods=['GET'])
+def get_active_announcements():
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT id, title, content, created_at FROM announcements WHERE status='active' ORDER BY created_at DESC")
+        announcements = cursor.fetchall()
+        cursor.close(); conn.close()
+        for a in announcements:
+            a['created_at'] = str(a['created_at'])
+        return jsonify(announcements)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/admin/announcements', methods=['GET'])
+@admin_required
+def admin_get_announcements():
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM announcements ORDER BY created_at DESC")
+        announcements = cursor.fetchall()
+        cursor.close(); conn.close()
+        for a in announcements:
+            a['created_at'] = str(a['created_at'])
+        return jsonify(announcements)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/admin/announcements', methods=['POST'])
+@admin_required
+def admin_create_announcement():
+    data = request.get_json()
+    if not data or not data.get('title') or not data.get('content'):
+        return jsonify({"error": "Title and content are required"}), 400
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO announcements (title, content, status) VALUES (%s, %s, %s)",
+                       (data['title'], data['content'], data.get('status', 'active')))
+        conn.commit()
+        cursor.close(); conn.close()
+        log_admin_activity(session['user_id'], 'Create Announcement', f"Title: {data['title']}")
+        return jsonify({"message": "Announcement created successfully!"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/admin/announcements/<int:announcement_id>/toggle', methods=['POST'])
+@admin_required
+def admin_toggle_announcement(announcement_id):
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT status FROM announcements WHERE id=%s", (announcement_id,))
+        announcement = cursor.fetchone()
+        if not announcement:
+            cursor.close(); conn.close()
+            return jsonify({"error": "Announcement not found"}), 404
+        
+        new_status = 'inactive' if announcement['status'] == 'active' else 'active'
+        cursor.execute("UPDATE announcements SET status=%s WHERE id=%s", (new_status, announcement_id))
+        cursor.close(); conn.close()
+        log_admin_activity(session['user_id'], 'Toggle Announcement', f"ID: {announcement_id} to {new_status}")
+        return jsonify({"message": f"Announcement marked as {new_status}!"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

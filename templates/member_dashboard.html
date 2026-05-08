@@ -6,6 +6,7 @@
     <title>Dashboard - SalQuino FitGym</title>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 <div class="dashboard-container">
@@ -45,6 +46,9 @@
 
         <!-- ==================== OVERVIEW ==================== -->
         <div id="overviewSection" class="content-section active">
+            <!-- Announcements Banner -->
+            <div id="announcementsBanner" style="display:none;margin-bottom:20px;"></div>
+
             <div class="stats-grid" id="memberStats">
                 <div class="stat-card"><div class="stat-label">Membership</div><div class="stat-value blue" id="statMembership">--</div></div>
                 <div class="stat-card"><div class="stat-label">🔥 Streak</div><div class="stat-value green" id="statStreak">0 days</div></div>
@@ -92,12 +96,16 @@
             <div class="section-card">
                 <h2><i class="fas fa-heartbeat"></i> Weight Tracker</h2>
                 <p style="color:#94a3b8;margin-bottom:20px;font-size:14px;">Log your weight after each session to track your progress</p>
+                <div id="bmiDisplay" style="margin-bottom:20px;"></div>
                 <div class="weight-form">
                     <input type="number" id="weightInput" placeholder="Enter weight in kg" step="0.1" min="20" max="300">
                     <button class="btn btn-green" onclick="logWeight()"><i class="fas fa-plus"></i> Log Weight</button>
                 </div>
                 <div id="weightContent">
                     <div class="empty-state"><i class="fas fa-spinner fa-spin"></i><h3>Loading...</h3></div>
+                </div>
+                <div style="margin-top:20px;background:rgba(15,23,42,0.4);border:1px solid rgba(148,163,184,0.1);border-radius:14px;padding:16px;">
+                    <canvas id="weightChart"></canvas>
                 </div>
             </div>
         </div>
@@ -349,6 +357,25 @@
             const weights = await wgtRes.json();
             const streakData = await streakRes.json();
 
+            // Fetch Announcements
+            try {
+                const annRes = await fetch('/api/announcements');
+                const announcements = await annRes.json();
+                const banner = document.getElementById('announcementsBanner');
+                if (announcements.length > 0) {
+                    let html = '<div style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:12px;padding:16px;">';
+                    html += '<h3 style="color:#60a5fa;font-size:15px;margin-bottom:8px;"><i class="fas fa-bullhorn"></i> Gym Announcements</h3>';
+                    announcements.forEach(a => {
+                        html += `<div style="margin-bottom:8px;"><strong>${a.title}</strong><p style="color:#94a3b8;font-size:13px;margin-top:2px;">${a.content}</p></div>`;
+                    });
+                    html += '</div>';
+                    banner.innerHTML = html;
+                    banner.style.display = 'block';
+                } else {
+                    banner.style.display = 'none';
+                }
+            } catch(e) { console.error('Announcements error:', e); }
+
             // Stats
             document.getElementById('statCheckins').textContent = checkins.length;
             document.getElementById('statStreak').textContent = streakData.current_streak + ' days';
@@ -555,13 +582,54 @@
     }
 
     // ===== WEIGHT TRACKER =====
+    let weightChartInstance = null;
+
     async function loadWeights() {
         const c = document.getElementById('weightContent');
         try {
-            const res = await fetch('/api/my-weights');
-            const weights = await res.json();
-            if (!weights.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-weight"></i><h3>No weight entries</h3><p>Log your first weight!</p></div>'; return; }
+            const [wRes, pRes] = await Promise.all([fetch('/api/my-weights'), fetch('/api/my-profile')]);
+            const weights = await wRes.json();
+            const profile = await pRes.json();
+
+            // BMI Calculation
+            const bmiDisplay = document.getElementById('bmiDisplay');
+            if (weights.length > 0 && profile.height_cm) {
+                const latestWeight = weights[0].weight_kg;
+                const heightM = profile.height_cm / 100;
+                const bmi = (latestWeight / (heightM * heightM)).toFixed(1);
+                let cat = 'Normal', color = '#10b981';
+                if (bmi < 18.5) { cat = 'Underweight'; color = '#3b82f6'; }
+                else if (bmi >= 25 && bmi < 30) { cat = 'Overweight'; color = '#f59e0b'; }
+                else if (bmi >= 30) { cat = 'Obese'; color = '#ef4444'; }
+                
+                bmiDisplay.innerHTML = `
+                    <div style="display:inline-flex;align-items:center;gap:12px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.15);padding:12px 20px;border-radius:12px;">
+                        <div>
+                            <div style="font-size:12px;color:#64748b;text-transform:uppercase;font-weight:700;">Current BMI</div>
+                            <div style="font-size:24px;font-weight:800;color:#fff;">${bmi}</div>
+                        </div>
+                        <div style="padding-left:12px;border-left:1px solid rgba(148,163,184,0.2);">
+                            <div style="font-size:12px;color:#64748b;text-transform:uppercase;font-weight:700;">Category</div>
+                            <div style="font-size:16px;font-weight:700;color:${color};">${cat}</div>
+                        </div>
+                    </div>`;
+            } else if (!profile.height_cm) {
+                bmiDisplay.innerHTML = '<div style="color:#f59e0b;font-size:13px;"><i class="fas fa-info-circle"></i> Update your height in My Profile to see your BMI.</div>';
+            } else {
+                bmiDisplay.innerHTML = '';
+            }
+
+            if (!weights.length) { 
+                c.innerHTML = '<div class="empty-state"><i class="fas fa-weight"></i><h3>No weight entries</h3><p>Log your first weight!</p></div>'; 
+                if(weightChartInstance) weightChartInstance.destroy();
+                return; 
+            }
             let html = '<div class="table-wrap"><table><tr><th>#</th><th>Weight (kg)</th><th>Date</th><th>Trend</th></tr>';
+            
+            // Chart Data Prep
+            const chartLabels = [];
+            const chartData = [];
+
             weights.forEach((w, i) => {
                 let trend = '<span class="trend-same">—</span>';
                 if (i < weights.length - 1) {
@@ -570,9 +638,44 @@
                     else if (diff < 0) trend = `<span class="trend-down">↓ ${diff.toFixed(1)}</span>`;
                 }
                 html += `<tr><td>${i+1}</td><td><strong>${w.weight_kg} kg</strong></td><td>${formatDate(w.logged_at)}</td><td>${trend}</td></tr>`;
+                
+                // Unshift to chart from oldest to newest
+                chartLabels.unshift(formatDate(w.logged_at));
+                chartData.unshift(w.weight_kg);
             });
             html += '</table></div>';
             c.innerHTML = html;
+
+            // Render Chart
+            const ctx = document.getElementById('weightChart').getContext('2d');
+            if (weightChartInstance) weightChartInstance.destroy();
+            weightChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: 'Weight (kg)',
+                        data: chartData,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59,130,246,0.1)',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#8b5cf6',
+                        pointBorderColor: '#fff',
+                        pointRadius: 5,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { grid: { color: 'rgba(148,163,184,0.1)' }, ticks: { color: '#94a3b8' } },
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+
         } catch(e) { c.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error</h3></div>'; }
     }
 
@@ -869,6 +972,7 @@
                         <div class="profile-email"><i class="fas fa-envelope"></i> ${p.email}</div>
                         <div class="profile-meta"><i class="fas fa-phone"></i> ${p.phone || '--'}</div>
                         <div class="profile-meta"><i class="fas fa-venus-mars"></i> ${p.gender}</div>
+                        <div class="profile-meta"><i class="fas fa-ruler-vertical"></i> Height: ${p.height_cm ? p.height_cm + ' cm' : 'Not set'}</div>
                         <div class="profile-meta"><i class="fas fa-calendar"></i> Joined ${formatDate(p.join_date)}</div>
                     </div>
                 </div>
@@ -878,6 +982,7 @@
                         <div class="form-group"><label>First Name</label><input type="text" id="editProfFirst" value="${p.first_name}"></div>
                         <div class="form-group"><label>Last Name</label><input type="text" id="editProfLast" value="${p.last_name}"></div>
                         <div class="form-group"><label>Phone</label><input type="tel" id="editProfPhone" value="${p.phone || ''}" maxlength="11"></div>
+                        <div class="form-group"><label>Height (cm)</label><input type="number" id="editProfHeight" value="${p.height_cm || ''}" placeholder="e.g. 175" min="50" max="300"></div>
                         <button class="btn btn-blue btn-lg" onclick="saveProfile()" style="margin-top:8px;"><i class="fas fa-save"></i> Save Changes</button>
                     </div>
                 </div>`;
@@ -888,7 +993,8 @@
         const payload = {
             first_name: document.getElementById('editProfFirst').value.trim(),
             last_name: document.getElementById('editProfLast').value.trim(),
-            phone: document.getElementById('editProfPhone').value.trim()
+            phone: document.getElementById('editProfPhone').value.trim(),
+            height_cm: document.getElementById('editProfHeight').value
         };
         try {
             const res = await fetch('/api/my-profile', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
