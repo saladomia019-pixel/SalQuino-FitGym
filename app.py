@@ -786,6 +786,86 @@ def admin_stats():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# =============================================
+#              CHART DATA (Admin Dashboard)
+# =============================================
+
+@app.route('/api/admin/chart/plan-distribution', methods=['GET'])
+@admin_required
+def chart_plan_distribution():
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT mp.plan_name, COUNT(m2.membership_id) as count
+            FROM membership_plans mp
+            LEFT JOIN memberships m2 ON mp.plan_id = m2.plan_id AND m2.status = 'active'
+            GROUP BY mp.plan_id, mp.plan_name
+            ORDER BY count DESC
+        """)
+        data = cursor.fetchall()
+        cursor.close(); conn.close()
+        return jsonify({
+            "labels": [d['plan_name'] for d in data],
+            "values": [d['count'] for d in data]
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/admin/chart/monthly-revenue', methods=['GET'])
+@admin_required
+def chart_monthly_revenue():
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT DATE_FORMAT(payment_date, '%%Y-%%m') as month,
+                   DATE_FORMAT(payment_date, '%%b %%Y') as label,
+                   COALESCE(SUM(amount), 0) as total
+            FROM payments
+            WHERE status = 'paid' AND payment_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+            GROUP BY month, label
+            ORDER BY month ASC
+        """)
+        data = cursor.fetchall()
+        cursor.close(); conn.close()
+        return jsonify({
+            "labels": [d['label'] for d in data],
+            "values": [float(d['total']) for d in data]
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/admin/chart/daily-attendance', methods=['GET'])
+@admin_required
+def chart_daily_attendance():
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT DATE(checkin_date) as day,
+                   DATE_FORMAT(checkin_date, '%%b %%d') as label,
+                   COUNT(*) as count
+            FROM attendance
+            WHERE checkin_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+            GROUP BY day, label
+            ORDER BY day ASC
+        """)
+        data = cursor.fetchall()
+        cursor.close(); conn.close()
+        return jsonify({
+            "labels": [d['label'] for d in data],
+            "values": [d['count'] for d in data]
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/admin/members', methods=['GET'])
 @admin_required
 def admin_get_members():

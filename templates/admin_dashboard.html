@@ -6,6 +6,7 @@
     <title>Admin Dashboard - SalQuino FitGym</title>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
 <div class="dashboard-container">
@@ -75,6 +76,22 @@
                     <button class="btn btn-blue" onclick="showSection('instructors')" style="background:linear-gradient(135deg,#f97316,#ea580c);"><i class="fas fa-chalkboard-teacher"></i> Instructors</button>
                     <button class="btn btn-green" onclick="showSection('instructorBookings')"><i class="fas fa-handshake"></i> Instructor Bookings</button>
                     <button class="btn btn-blue" onclick="showSection('logs')"><i class="fas fa-history"></i> Activity Log</button>
+                </div>
+            </div>
+
+            <!-- Analytics Charts -->
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3><i class="fas fa-chart-pie" style="color:#8b5cf6;"></i> Membership Distribution</h3>
+                    <div class="chart-container"><canvas id="planDistChart"></canvas></div>
+                </div>
+                <div class="chart-card">
+                    <h3><i class="fas fa-chart-bar" style="color:#10b981;"></i> Monthly Revenue</h3>
+                    <div class="chart-container"><canvas id="revenueChart"></canvas></div>
+                </div>
+                <div class="chart-card" style="grid-column: 1 / -1;">
+                    <h3><i class="fas fa-chart-line" style="color:#3b82f6;"></i> Daily Attendance (Last 30 Days)</h3>
+                    <div class="chart-container" style="height:260px;"><canvas id="attendanceChart"></canvas></div>
                 </div>
             </div>
         </div>
@@ -281,6 +298,134 @@
             document.getElementById('sTotalRevenue').textContent = formatPeso(s.total_revenue);
             document.getElementById('sTotalInstructors').textContent = s.total_instructors || 0;
         } catch(e) { console.error('Stats error:', e); }
+    }
+
+    // ===== CHARTS =====
+    let planChart, revenueChart, attendanceChart;
+
+    async function loadCharts() {
+        const chartColors = ['#3b82f6','#8b5cf6','#f59e0b','#10b981','#ef4444','#ec4899','#06b6d4','#f97316'];
+
+        // Plan Distribution Pie Chart
+        try {
+            const res = await fetch('/api/admin/chart/plan-distribution');
+            const data = await res.json();
+            const ctx = document.getElementById('planDistChart').getContext('2d');
+            if (planChart) planChart.destroy();
+            planChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        data: data.values,
+                        backgroundColor: chartColors.slice(0, data.labels.length),
+                        borderColor: 'rgba(15,23,42,0.8)',
+                        borderWidth: 3,
+                        hoverOffset: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#94a3b8', padding: 16, usePointStyle: true, pointStyleWidth: 10, font: { size: 12, family: 'Inter' } }
+                        }
+                    },
+                    cutout: '65%'
+                }
+            });
+        } catch(e) { console.error('Plan chart error:', e); }
+
+        // Monthly Revenue Bar Chart
+        try {
+            const res = await fetch('/api/admin/chart/monthly-revenue');
+            const data = await res.json();
+            const ctx = document.getElementById('revenueChart').getContext('2d');
+            if (revenueChart) revenueChart.destroy();
+            revenueChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'Revenue (\u20b1)',
+                        data: data.values,
+                        backgroundColor: data.values.map((_, i) => {
+                            const colors = ['rgba(59,130,246,0.7)','rgba(139,92,246,0.7)','rgba(16,185,129,0.7)','rgba(245,158,11,0.7)','rgba(239,68,68,0.7)','rgba(236,72,153,0.7)'];
+                            return colors[i % colors.length];
+                        }),
+                        borderRadius: 8,
+                        borderSkipped: false,
+                        maxBarThickness: 50
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(148,163,184,0.08)' },
+                            ticks: { color: '#64748b', font: { size: 11, family: 'Inter' }, callback: v => '\u20b1' + v.toLocaleString() }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8', font: { size: 11, family: 'Inter' } }
+                        }
+                    }
+                }
+            });
+        } catch(e) { console.error('Revenue chart error:', e); }
+
+        // Daily Attendance Line Chart
+        try {
+            const res = await fetch('/api/admin/chart/daily-attendance');
+            const data = await res.json();
+            const ctx = document.getElementById('attendanceChart').getContext('2d');
+            if (attendanceChart) attendanceChart.destroy();
+            attendanceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'Check-ins',
+                        data: data.values,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59,130,246,0.08)',
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#3b82f6',
+                        pointBorderColor: '#1e293b',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 7
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(148,163,184,0.08)' },
+                            ticks: { color: '#64748b', font: { size: 11, family: 'Inter' }, stepSize: 1 }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8', font: { size: 10, family: 'Inter' }, maxRotation: 45 }
+                        }
+                    }
+                }
+            });
+        } catch(e) { console.error('Attendance chart error:', e); }
     }
 
     // ===== MEMBERS =====
@@ -901,7 +1046,7 @@
         origShowSection(name);
         document.getElementById('pageTitle').textContent =
             {dashboard:'Dashboard',members:'Members',requests:'Membership Requests',payments:'Payments',plans:'Manage Plans',announcements:'Announcements',instructors:'Instructors',instructorBookings:'Instructor Bookings',logs:'Activity Log'}[name] || name;
-        if (name === 'dashboard') loadStats();
+        if (name === 'dashboard') { loadStats(); loadCharts(); }
         else if (name === 'members') loadMembers();
         else if (name === 'requests') loadRequests();
         else if (name === 'payments') loadPayments();
@@ -913,7 +1058,7 @@
     };
 
     // ===== INIT =====
-    document.addEventListener('DOMContentLoaded', loadStats);
+    document.addEventListener('DOMContentLoaded', () => { loadStats(); loadCharts(); });
 </script>
 </body>
 </html>
