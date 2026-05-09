@@ -1,8 +1,9 @@
-from flask import Flask, request, jsonify, render_template, redirect, url_for, session, flash
+from flask import Flask, request, jsonify, render_template, redirect, url_for, session, flash, send_from_directory
 from datetime import date, datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 import mysql.connector
 from mysql.connector import Error
+import os
 from functools import wraps
 import logging
 import re
@@ -60,6 +61,11 @@ def member_required(f):
 @app.route('/')
 def landing():
     return render_template('landing.html')
+
+@app.route('/Image/<path:filename>')
+@app.route('/image/<path:filename>')
+def serve_image(filename):
+    return send_from_directory(os.path.join(app.root_path, 'Image'), filename)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
