@@ -90,6 +90,7 @@ def login():
                 session['user_id'] = member['member_id']
                 session['name'] = f"{member['first_name']} {member['last_name']}"
                 session['user_type'] = 'member'
+                flash("Log in successful", "success")
                 return redirect('/dashboard')
             else:
                 flash("Invalid email or password", "error")
@@ -180,6 +181,7 @@ def admin_login():
             session['user_id'] = admin['admin_id']
             session['name'] = admin['username']
             session['user_type'] = 'admin'
+            flash("Log in successful", "success")
             return redirect('/admin-dashboard')
         else:
             flash("Invalid username or password", "error")
@@ -190,6 +192,7 @@ def admin_login():
 def logout():
     user_type = session.get('user_type', 'member')
     session.clear()
+    flash("Log out successful", "success")
     if user_type == 'admin':
         return redirect('/admin-login')
     return redirect('/login')
@@ -208,6 +211,25 @@ def dashboard():
 @app.route('/api/plans', methods=['GET'])
 @login_required
 def get_plans():
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT plan_id, plan_name, type, duration_days, price, description
+            FROM membership_plans WHERE status='active' ORDER BY price ASC
+        """)
+        plans = cursor.fetchall()
+        for p in plans:
+            p['price'] = float(p['price'])
+        cursor.close(); conn.close()
+        return jsonify({"plans": plans})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/public/plans', methods=['GET'])
+def public_plans():
     conn = get_connection()
     if not conn:
         return jsonify({"error": "Database unavailable"}), 500

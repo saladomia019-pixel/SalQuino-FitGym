@@ -71,3 +71,45 @@ function formatDate(dateStr) {
 function scrollToSection(id) {
     document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
 }
+
+async function loadPublicPlans() {
+    const container = document.getElementById('plansPreviewContainer');
+    if (!container) return;
+
+    try {
+        const res = await fetch('/api/public/plans');
+        const data = await res.json();
+        const plans = data.plans || [];
+
+        if (!plans.length) {
+            container.innerHTML = '<div class="empty-state"><p>No membership plans are available yet.</p></div>';
+            return;
+        }
+
+        container.innerHTML = plans.map((plan, index) => {
+            const durationLabel = plan.type ? `${plan.type} • ${plan.duration_days} days` : `${plan.duration_days} days`;
+            const descriptionHtml = plan.description
+                ? `<p style="color:#cbd5e1;margin-top:18px;line-height:1.6;font-size:15px;">${plan.description}</p>`
+                : '';
+            const popularClass = index === 0 ? ' popular' : '';
+            const badge = index === 0 ? '<div class="pop-badge">BEST VALUE</div>' : '';
+            return `
+                <div class="plan-preview-card${popularClass}">
+                    ${badge}
+                    <h3>${plan.plan_name}</h3>
+                    <div class="price">${formatPeso(plan.price)} <span>/ ${plan.type ? plan.type.toLowerCase() : 'plan'}</span></div>
+                    <ul>
+                        <li><i class="fas fa-check"></i> ${durationLabel}</li>
+                    </ul>
+                    ${descriptionHtml}
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        container.innerHTML = '<div class="empty-state"><p>Failed to load plans. Please try again later.</p></div>';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadPublicPlans();
+});

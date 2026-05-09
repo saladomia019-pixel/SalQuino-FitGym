@@ -73,7 +73,9 @@ a{text-decoration:none;color:inherit;}
 .auth-footer a{color:#3b82f6;font-weight:600;transition:color 0.3s;}
 .auth-footer a:hover{color:#60a5fa;}
 
-.flash-msg{padding:14px 18px;border-radius:12px;font-size:14px;font-weight:500;margin-bottom:16px;}
+.flash-msg{position:relative;padding:14px 46px 14px 18px;border-radius:12px;font-size:14px;font-weight:500;margin-bottom:16px;}
+.flash-close{position:absolute;top:50%;right:14px;transform:translateY(-50%);border:none;background:transparent;color:currentColor;font-size:18px;line-height:1;cursor:pointer;padding:0;margin:0;opacity:.75;transition:opacity .2s ease;}
+.flash-close:hover{opacity:1;}
 .flash-error{background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;}
 .flash-success{background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);color:#6ee7b7;}
 

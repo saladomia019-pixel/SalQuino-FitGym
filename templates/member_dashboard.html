@@ -44,6 +44,15 @@
             <h1 id="pageTitle">Dashboard</h1>
         </div>
 
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <div class="flash-msg flash-{{ category }}" style="margin:16px 0;">
+                    {{ message }}
+                    <button type="button" class="flash-close" onclick="this.closest('.flash-msg').remove()" aria-label="Close">&times;</button>
+                </div>
+            {% endfor %}
+        {% endwith %}
+
         <!-- ==================== OVERVIEW ==================== -->
         <div id="overviewSection" class="content-section active">
             <!-- Announcements Banner -->
