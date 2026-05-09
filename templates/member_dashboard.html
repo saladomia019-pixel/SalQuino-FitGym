@@ -30,6 +30,7 @@
             <a href="#" onclick="showSection('membership')"><i class="fas fa-id-card"></i> My Membership</a>
             <a href="#" onclick="showSection('checkins')"><i class="fas fa-calendar-check"></i> Check-ins</a>
             <a href="#" onclick="showSection('health')"><i class="fas fa-heartbeat"></i> Health Tracker</a>
+            <a href="#" onclick="showSection('instructors')"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
             <a href="#" onclick="showSection('profile')"><i class="fas fa-user"></i> My Profile</a>
         </nav>
         <div class="sidebar-footer">
@@ -115,6 +116,17 @@
                 </div>
                 <div style="margin-top:20px;background:rgba(15,23,42,0.4);border:1px solid rgba(148,163,184,0.1);border-radius:14px;padding:16px;">
                     <canvas id="weightChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== INSTRUCTORS ==================== -->
+        <div id="instructorsSection" class="content-section">
+            <div class="section-card">
+                <h2><i class="fas fa-chalkboard-teacher"></i> Fitness Instructors</h2>
+                <p style="color:#94a3b8;margin-bottom:20px;font-size:14px;">Browse our available fitness instructors and hire one for a personal training session</p>
+                <div id="instructorsList" class="instructor-grid">
+                    <div class="empty-state"><i class="fas fa-spinner fa-spin"></i><h3>Loading...</h3></div>
                 </div>
             </div>
         </div>
@@ -344,6 +356,130 @@
             <button class="btn btn-green btn-lg" style="flex:1;" onclick="closeModal('walkinTicketModal');loadOverview();">
                 <i class="fas fa-check"></i> Done
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- HIRE INSTRUCTOR MODAL -->
+<div class="modal-overlay" id="hireModal">
+    <div class="modal">
+        <button class="close-btn" onclick="closeModal('hireModal')">&times;</button>
+        <h3><i class="fas fa-chalkboard-teacher" style="color:#f97316;"></i> Hire Instructor</h3>
+        <div id="hireInstructorInfo" style="margin-bottom:20px;"></div>
+        <div class="form-group"><label>Booking Date</label>
+            <input type="date" id="hireDate" style="width:100%;padding:12px 16px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);border-radius:10px;color:#e2e8f0;font-size:14px;outline:none;font-family:'Inter',sans-serif;">
+        </div>
+        <div class="form-group"><label>Preferred Time</label>
+            <select id="hireTime" style="width:100%;padding:12px 16px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);border-radius:10px;color:#e2e8f0;font-size:14px;outline:none;font-family:'Inter',sans-serif;">
+                <option value="Morning (6AM-12PM)">Morning (6AM-12PM)</option>
+                <option value="Afternoon (12PM-5PM)">Afternoon (12PM-5PM)</option>
+                <option value="Evening (5PM-9PM)">Evening (5PM-9PM)</option>
+            </select>
+        </div>
+        <div class="form-group"><label>Notes (Optional)</label>
+            <textarea id="hireNotes" placeholder="Any special requests or goals..." style="width:100%;height:70px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);border-radius:10px;color:#fff;padding:12px;font-family:'Inter',sans-serif;resize:vertical;"></textarea>
+        </div>
+        <button class="btn btn-blue btn-lg" style="width:100%;" id="hireNextBtn" onclick="showHirePayment()"><i class="fas fa-credit-card"></i> Choose Payment Method</button>
+    </div>
+</div>
+
+<!-- HIRE PAYMENT METHOD MODAL -->
+<div class="modal-overlay" id="hirePaymentModal">
+    <div class="modal" style="max-width:460px;text-align:center;">
+        <button class="close-btn" onclick="closeModal('hirePaymentModal')">&times;</button>
+        <div style="margin-bottom:24px;">
+            <div style="width:70px;height:70px;background:linear-gradient(135deg,#f97316,#ea580c);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                <i class="fas fa-wallet" style="font-size:28px;color:#fff;"></i>
+            </div>
+            <h3 style="margin-bottom:8px;"><i class="fas fa-money-check-alt"></i> Payment Method</h3>
+            <p style="color:#94a3b8;font-size:14px;">How would you like to pay for the instructor session?</p>
+        </div>
+        <div id="hirePmSummary" style="margin-bottom:16px;"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:24px 0;">
+            <div class="payment-method-card" onclick="selectHirePayment('online')" id="hirePmOnline">
+                <div class="pm-icon" style="background:linear-gradient(135deg,#10b981,#059669);">
+                    <i class="fas fa-globe"></i>
+                </div>
+                <h4>Online</h4>
+                <p>Pay instantly via simulated online payment</p>
+            </div>
+            <div class="payment-method-card" onclick="selectHirePayment('walkin')" id="hirePmWalkin">
+                <div class="pm-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);">
+                    <i class="fas fa-store"></i>
+                </div>
+                <h4>Walk-in</h4>
+                <p>Pay at the gym counter with a printed ticket</p>
+            </div>
+        </div>
+        <button class="btn btn-blue btn-lg" style="width:100%;" id="hireConfirmPayBtn" onclick="processHirePayment()" disabled>
+            <i class="fas fa-arrow-right"></i> Continue
+        </button>
+    </div>
+</div>
+
+<!-- HIRE ONLINE PAYMENT MODAL -->
+<div class="modal-overlay" id="hireOnlinePayModal">
+    <div class="modal" style="max-width:480px;">
+        <button class="close-btn" onclick="closeModal('hireOnlinePayModal')">&times;</button>
+        <h3><i class="fas fa-lock" style="color:#10b981;"></i> Secure Payment</h3>
+        <div id="hirePayFormArea">
+            <div class="payment-summary" id="hirePaySummary"></div>
+            <div class="form-group"><label>Card Holder Name</label><input type="text" id="hireCardName" placeholder="Juan Dela Cruz"></div>
+            <div class="form-group"><label>Card Number</label><input type="text" id="hireCardNumber" placeholder="4242 4242 4242 4242" maxlength="19"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="form-group"><label>Expiry</label><input type="text" id="hireCardExpiry" placeholder="MM/YY" maxlength="5"></div>
+                <div class="form-group"><label>CVV</label><input type="text" id="hireCardCvv" placeholder="123" maxlength="3"></div>
+            </div>
+            <button class="btn btn-green btn-lg" style="width:100%;margin-top:16px;" onclick="simulateHirePayment()">
+                <i class="fas fa-lock"></i> Pay Now
+            </button>
+        </div>
+        <div id="hirePayProcessing" style="display:none;text-align:center;padding:40px 20px;">
+            <div class="payment-spinner"></div>
+            <h3 style="color:#fff;margin-top:20px;">Processing Payment...</h3>
+            <p style="color:#94a3b8;font-size:14px;">Please wait while we process your payment</p>
+        </div>
+    </div>
+</div>
+
+<!-- HIRE E-RECEIPT MODAL -->
+<div class="modal-overlay" id="hireReceiptModal">
+    <div class="modal" style="max-width:480px;">
+        <button class="close-btn" onclick="closeModal('hireReceiptModal')">&times;</button>
+        <div id="hireReceiptPrintArea">
+            <div style="text-align:center;padding:20px 0;">
+                <div style="width:60px;height:60px;background:linear-gradient(135deg,#10b981,#059669);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                    <i class="fas fa-check" style="font-size:28px;color:#fff;"></i>
+                </div>
+                <h3 style="color:#10b981;font-size:22px;margin-bottom:4px;">Payment Successful!</h3>
+                <p style="color:#94a3b8;font-size:13px;">Your instructor hire e-receipt is ready</p>
+            </div>
+            <div class="receipt-card" id="hireReceiptDetails"></div>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:20px;">
+            <button class="btn btn-blue btn-lg" style="flex:1;" onclick="printHireReceipt()"><i class="fas fa-print"></i> Print</button>
+            <button class="btn btn-green btn-lg" style="flex:1;" onclick="closeModal('hireReceiptModal');showSection('instructors');"><i class="fas fa-check"></i> Done</button>
+        </div>
+    </div>
+</div>
+
+<!-- HIRE WALK-IN TICKET MODAL -->
+<div class="modal-overlay" id="hireTicketModal">
+    <div class="modal" style="max-width:480px;">
+        <button class="close-btn" onclick="closeModal('hireTicketModal')">&times;</button>
+        <div id="hireTicketPrintArea">
+            <div style="text-align:center;padding:20px 0;">
+                <div style="width:60px;height:60px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                    <i class="fas fa-ticket-alt" style="font-size:28px;color:#fff;"></i>
+                </div>
+                <h3 style="color:#fbbf24;font-size:22px;margin-bottom:4px;">Instructor Hire Ticket</h3>
+                <p style="color:#94a3b8;font-size:13px;">Present this ticket at the gym counter to complete payment</p>
+            </div>
+            <div class="ticket-card" id="hireTicketDetails"></div>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:20px;">
+            <button class="btn btn-yellow btn-lg" style="flex:1;" onclick="printHireTicket()"><i class="fas fa-print"></i> Print</button>
+            <button class="btn btn-green btn-lg" style="flex:1;" onclick="closeModal('hireTicketModal');showSection('instructors');"><i class="fas fa-check"></i> Done</button>
         </div>
     </div>
 </div>
@@ -1176,13 +1312,200 @@
     showSection = function(name) {
         origShowSection(name);
         document.getElementById('pageTitle').textContent =
-            {overview:'Dashboard',membership:'My Membership',checkins:'Check-ins',health:'Health Tracker',profile:'My Profile'}[name] || name;
+            {overview:'Dashboard',membership:'My Membership',checkins:'Check-ins',health:'Health Tracker',instructors:'Instructors',profile:'My Profile'}[name] || name;
         if (name === 'overview') loadOverview();
         else if (name === 'membership') loadMembership();
         else if (name === 'checkins') loadCheckins();
         else if (name === 'health') loadWeights();
+        else if (name === 'instructors') loadMemberInstructors();
         else if (name === 'profile') loadProfile();
     };
+
+    // ===== INSTRUCTORS (Member) =====
+    let hireInstructor_data = null;
+    let hirePaymentMethod = null;
+
+    async function loadMemberInstructors() {
+        const c = document.getElementById('instructorsList');
+        try {
+            const res = await fetch('/api/instructors');
+            const instructors = await res.json();
+            if (!instructors.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-chalkboard-teacher"></i><h3>No Instructors Available</h3><p>Check back later for available fitness instructors</p></div>'; return; }
+            c.innerHTML = instructors.map(i => `
+                <div class="instructor-card">
+                    <div class="instructor-avatar">${i.first_name[0]}${i.last_name[0]}</div>
+                    <div class="instructor-name">${i.first_name} ${i.last_name}</div>
+                    <div class="instructor-bio">${i.bio || 'Professional fitness instructor ready to help you reach your goals.'}</div>
+                    <div class="instructor-rate">${formatPeso(i.session_rate)} <small>/ session</small></div>
+                    <div class="instructor-contact">
+                        ${i.email ? '<span><i class="fas fa-envelope"></i> ' + i.email + '</span>' : ''}
+                        ${i.phone ? '<span><i class="fas fa-phone"></i> ' + i.phone + '</span>' : ''}
+                    </div>
+                    <button class="btn btn-blue btn-lg" style="width:100%;margin-top:16px;background:linear-gradient(135deg,#f97316,#ea580c);" onclick='openHireModal(${JSON.stringify(i).replace(/'/g,"&#39;")})'>
+                        <i class="fas fa-handshake"></i> Hire Instructor
+                    </button>
+                </div>
+            `).join('');
+        } catch(e) { c.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error loading instructors</h3></div>'; }
+    }
+
+    function openHireModal(instructor) {
+        hireInstructor_data = instructor;
+        document.getElementById('hireInstructorInfo').innerHTML = `
+            <div style="display:flex;align-items:center;gap:16px;background:rgba(15,23,42,0.6);border:1px solid rgba(249,115,22,0.2);border-radius:14px;padding:16px;">
+                <div style="width:50px;height:50px;background:linear-gradient(135deg,#f97316,#ea580c);border-radius:14px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:18px;flex-shrink:0;">${instructor.first_name[0]}${instructor.last_name[0]}</div>
+                <div>
+                    <div style="color:#fff;font-weight:700;font-size:16px;">${instructor.first_name} ${instructor.last_name}</div>
+                    <div style="color:#f97316;font-weight:700;font-size:18px;margin-top:2px;">${formatPeso(instructor.session_rate)} <span style="font-size:12px;color:#94a3b8;font-weight:500;">/ session</span></div>
+                </div>
+            </div>`;
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('hireDate').min = today;
+        document.getElementById('hireDate').value = today;
+        document.getElementById('hireTime').value = 'Morning (6AM-12PM)';
+        document.getElementById('hireNotes').value = '';
+        openModal('hireModal');
+    }
+
+    function showHirePayment() {
+        const bookDate = document.getElementById('hireDate').value;
+        if (!bookDate) { showToast('Please select a booking date', 'error'); return; }
+        closeModal('hireModal');
+        hirePaymentMethod = null;
+        document.querySelectorAll('#hirePaymentModal .payment-method-card').forEach(c => c.classList.remove('selected'));
+        document.getElementById('hireConfirmPayBtn').disabled = true;
+        document.getElementById('hirePmSummary').innerHTML = `
+            <div class="payment-summary">
+                <div class="ps-row"><span>Instructor</span><strong>${hireInstructor_data.first_name} ${hireInstructor_data.last_name}</strong></div>
+                <div class="ps-row"><span>Date</span><strong>${formatDate(bookDate)}</strong></div>
+                <div class="ps-row"><span>Time</span><strong>${document.getElementById('hireTime').value}</strong></div>
+                <div class="ps-row total"><span>Amount</span><strong>${formatPeso(hireInstructor_data.session_rate)}</strong></div>
+            </div>`;
+        openModal('hirePaymentModal');
+    }
+
+    function selectHirePayment(method) {
+        hirePaymentMethod = method;
+        document.querySelectorAll('#hirePaymentModal .payment-method-card').forEach(c => c.classList.remove('selected'));
+        document.getElementById(method === 'online' ? 'hirePmOnline' : 'hirePmWalkin').classList.add('selected');
+        document.getElementById('hireConfirmPayBtn').disabled = false;
+    }
+
+    function processHirePayment() {
+        if (!hirePaymentMethod) return;
+        closeModal('hirePaymentModal');
+        if (hirePaymentMethod === 'online') {
+            document.getElementById('hirePaySummary').innerHTML = `
+                <div class="ps-row"><span>Instructor</span><strong>${hireInstructor_data.first_name} ${hireInstructor_data.last_name}</strong></div>
+                <div class="ps-row"><span>Date</span><strong>${formatDate(document.getElementById('hireDate').value)}</strong></div>
+                <div class="ps-row total"><span>Total</span><strong>${formatPeso(hireInstructor_data.session_rate)}</strong></div>`;
+            document.getElementById('hirePayFormArea').style.display = 'block';
+            document.getElementById('hirePayProcessing').style.display = 'none';
+            document.getElementById('hireCardName').value = '';
+            document.getElementById('hireCardNumber').value = '';
+            document.getElementById('hireCardExpiry').value = '';
+            document.getElementById('hireCardCvv').value = '';
+            openModal('hireOnlinePayModal');
+        } else {
+            submitHireRequest('walkin');
+        }
+    }
+
+    function simulateHirePayment() {
+        const name = document.getElementById('hireCardName').value.trim();
+        const num = document.getElementById('hireCardNumber').value.trim();
+        const exp = document.getElementById('hireCardExpiry').value.trim();
+        const cvv = document.getElementById('hireCardCvv').value.trim();
+        if (!name || !num || !exp || !cvv) { showToast('Please fill all card details', 'error'); return; }
+        if (num.replace(/\s/g,'').length < 13) { showToast('Invalid card number', 'error'); return; }
+        document.getElementById('hirePayFormArea').style.display = 'none';
+        document.getElementById('hirePayProcessing').style.display = 'block';
+        setTimeout(() => {
+            closeModal('hireOnlinePayModal');
+            submitHireRequest('online');
+        }, 2500);
+    }
+
+    async function submitHireRequest(paymentMethod) {
+        const payload = {
+            instructor_id: hireInstructor_data.instructor_id,
+            booking_date: document.getElementById('hireDate').value,
+            session_time: document.getElementById('hireTime').value,
+            notes: document.getElementById('hireNotes').value.trim(),
+            payment_method: paymentMethod
+        };
+        try {
+            const res = await fetch('/api/hire-instructor', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            const data = await res.json();
+            if (res.ok) {
+                showToast(data.message);
+                if (paymentMethod === 'online') {
+                    showHireReceipt(data);
+                } else {
+                    showHireTicket(data);
+                }
+            } else {
+                showToast(data.error, 'error');
+            }
+        } catch(e) { showToast('Submission failed', 'error'); }
+    }
+
+    function showHireReceipt(data) {
+        document.getElementById('hireReceiptDetails').innerHTML = `
+            <div class="receipt-header"><i class="fas fa-dumbbell"></i> SalQuino FitGym</div>
+            <div class="receipt-divider"></div>
+            <div class="receipt-row"><span>Reference No.</span><strong>${data.reference_code}</strong></div>
+            <div class="receipt-row"><span>Member</span><strong>${data.member_name}</strong></div>
+            <div class="receipt-row"><span>Instructor</span><strong>${data.instructor_name}</strong></div>
+            <div class="receipt-row"><span>Session Date</span><strong>${formatDate(data.booking_date)}</strong></div>
+            <div class="receipt-row"><span>Time</span><strong>${data.session_time || '--'}</strong></div>
+            <div class="receipt-divider"></div>
+            <div class="receipt-row total"><span>Amount Paid</span><strong>${formatPeso(data.amount)}</strong></div>
+            <div class="receipt-row"><span>Payment Method</span><strong>Online</strong></div>
+            <div class="receipt-row"><span>Payment Status</span><strong style="color:#10b981;">Paid ✓</strong></div>
+            <div class="receipt-row"><span>Date</span><strong>${data.date}</strong></div>
+            <div class="receipt-divider"></div>
+            <div class="receipt-footer">
+                <p>Your instructor hire request is awaiting admin approval.</p>
+                <p style="font-size:11px;margin-top:8px;opacity:0.7;">Booking ID: #${data.booking_id}</p>
+            </div>`;
+        openModal('hireReceiptModal');
+    }
+
+    function showHireTicket(data) {
+        document.getElementById('hireTicketDetails').innerHTML = `
+            <div class="ticket-header"><i class="fas fa-dumbbell"></i> SalQuino FitGym<div class="ticket-subtitle">INSTRUCTOR HIRE TICKET</div></div>
+            <div class="ticket-divider"></div>
+            <div class="ticket-ref">${data.reference_code}</div>
+            <div class="ticket-divider"></div>
+            <div class="ticket-row"><span>Member</span><strong>${data.member_name}</strong></div>
+            <div class="ticket-row"><span>Instructor</span><strong>${data.instructor_name}</strong></div>
+            <div class="ticket-row"><span>Session Date</span><strong>${formatDate(data.booking_date)}</strong></div>
+            <div class="ticket-row"><span>Time</span><strong>${data.session_time || '--'}</strong></div>
+            <div class="ticket-row total"><span>Amount Due</span><strong>${formatPeso(data.amount)}</strong></div>
+            <div class="ticket-row"><span>Payment Method</span><strong>Walk-in</strong></div>
+            <div class="ticket-row"><span>Status</span><strong style="color:#fbbf24;">Pending Payment</strong></div>
+            <div class="ticket-row"><span>Date Issued</span><strong>${data.date}</strong></div>
+            <div class="ticket-divider"></div>
+            <div class="ticket-footer">
+                <p><strong>Instructions:</strong></p>
+                <p>1. Print this ticket</p>
+                <p>2. Present it at the SalQuino FitGym counter</p>
+                <p>3. Complete payment to confirm your session</p>
+                <p style="font-size:11px;margin-top:10px;opacity:0.7;">Booking ID: #${data.booking_id}</p>
+            </div>`;
+        openModal('hireTicketModal');
+    }
+
+    function printHireReceipt() {
+        const content = document.getElementById('hireReceiptPrintArea').innerHTML;
+        printContent(content, 'Instructor Hire Receipt - SalQuino FitGym');
+    }
+
+    function printHireTicket() {
+        const content = document.getElementById('hireTicketPrintArea').innerHTML;
+        printContent(content, 'Instructor Hire Ticket - SalQuino FitGym');
+    }
 
     // ===== INIT =====
     document.addEventListener('DOMContentLoaded', loadOverview);

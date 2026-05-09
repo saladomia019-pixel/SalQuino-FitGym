@@ -777,9 +777,12 @@ def admin_stats():
         pending = cursor.fetchone()['count']
         cursor.execute("SELECT COALESCE(SUM(amount),0) as total FROM payments WHERE status='paid'")
         revenue = cursor.fetchone()['total']
+        cursor.execute("SELECT COUNT(*) as count FROM instructors WHERE status='active'")
+        total_instructors = cursor.fetchone()['count']
         cursor.close(); conn.close()
         return jsonify({"total_members": total_members, "active_memberships": active,
-                        "pending_requests": pending, "total_revenue": float(revenue)})
+                        "pending_requests": pending, "total_revenue": float(revenue),
+                        "total_instructors": total_instructors})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -1267,6 +1270,299 @@ def admin_toggle_announcement(announcement_id):
         log_admin_activity(session['user_id'], 'Toggle Announcement', f"ID: {announcement_id} to {new_status}")
         return jsonify({"message": f"Announcement marked as {new_status}!"})
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# =============================================
+#              INSTRUCTORS CRUD (Admin)
+# =============================================
+
+@app.route('/api/admin/instructors', methods=['GET'])
+@admin_required
+def admin_get_instructors():
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM instructors ORDER BY created_at DESC")
+        instructors = cursor.fetchall()
+        cursor.close(); conn.close()
+        for i in instructors:
+            i['session_rate'] = float(i['session_rate'])
+            i['hire_date'] = str(i['hire_date']) if i['hire_date'] else None
+            i['created_at'] = str(i['created_at'])
+        return jsonify(instructors)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/admin/instructors', methods=['POST'])
+@admin_required
+def admin_create_instructor():
+    data = request.get_json()
+    required = ['first_name', 'last_name']
+    for field in required:
+        if not data.get(field):
+            return jsonify({"error": f"{field} is required"}), 400
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO instructors (first_name, last_name, email, phone, gender, bio, session_rate, status, hire_date)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'active', CURDATE())
+        """, (data['first_name'], data['last_name'], data.get('email', ''),
+              data.get('phone', ''), data.get('gender', 'Other'),
+              data.get('bio', ''), float(data.get('session_rate', 0))))
+        cursor.close(); conn.close()
+        log_admin_activity(session['user_id'], 'Create Instructor', f"Instructor: {data['first_name']} {data['last_name']}")
+        return jsonify({"message": "Instructor added successfully!"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/admin/instructors/<int:instructor_id>', methods=['PUT'])
+@admin_required
+def admin_update_instructor(instructor_id):
+    data = request.get_json()
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE instructors SET first_name=%s, last_name=%s, email=%s, phone=%s,
+            gender=%s, bio=%s, session_rate=%s, status=%s
+            WHERE instructor_id=%s
+        """, (data['first_name'], data['last_name'], data.get('email', ''),
+              data.get('phone', ''), data.get('gender', 'Other'),
+              data.get('bio', ''), float(data.get('session_rate', 0)),
+              data.get('status', 'active'), instructor_id))
+        cursor.close(); conn.close()
+        log_admin_activity(session['user_id'], 'Update Instructor', f"Instructor ID: {instructor_id}")
+        return jsonify({"message": "Instructor updated successfully!"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/admin/instructors/<int:instructor_id>', methods=['DELETE'])
+@admin_required
+def admin_delete_instructor(instructor_id):
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM instructor_bookings WHERE instructor_id=%s", (instructor_id,))
+        cursor.execute("DELETE FROM instructors WHERE instructor_id=%s", (instructor_id,))
+        cursor.close(); conn.close()
+        log_admin_activity(session['user_id'], 'Delete Instructor', f"Instructor ID: {instructor_id}")
+        return jsonify({"message": "Instructor deleted successfully!"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/admin/instructors/<int:instructor_id>/toggle', methods=['POST'])
+@admin_required
+def admin_toggle_instructor(instructor_id):
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT status FROM instructors WHERE instructor_id=%s", (instructor_id,))
+        instructor = cursor.fetchone()
+        if not instructor:
+            cursor.close(); conn.close()
+            return jsonify({"error": "Instructor not found"}), 404
+        new_status = 'inactive' if instructor['status'] == 'active' else 'active'
+        cursor.execute("UPDATE instructors SET status=%s WHERE instructor_id=%s", (new_status, instructor_id))
+        cursor.close(); conn.close()
+        log_admin_activity(session['user_id'], 'Toggle Instructor', f"Instructor ID: {instructor_id} to {new_status}")
+        return jsonify({"message": f"Instructor marked as {new_status}!"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# =============================================
+#              INSTRUCTOR BOOKINGS (Admin)
+# =============================================
+
+@app.route('/api/admin/instructor-bookings', methods=['GET'])
+@admin_required
+def admin_get_instructor_bookings():
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT b.*, CONCAT(m.first_name,' ',m.last_name) as member_name,
+                   CONCAT(i.first_name,' ',i.last_name) as instructor_name
+            FROM instructor_bookings b
+            JOIN members m ON b.member_id = m.member_id
+            JOIN instructors i ON b.instructor_id = i.instructor_id
+            ORDER BY CASE b.status WHEN 'pending' THEN 1 WHEN 'approved' THEN 2 ELSE 3 END, b.created_at DESC
+        """)
+        bookings = cursor.fetchall()
+        cursor.close(); conn.close()
+        for b in bookings:
+            b['amount'] = float(b['amount'])
+            b['booking_date'] = str(b['booking_date'])
+            b['created_at'] = str(b['created_at'])
+        return jsonify(bookings)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/admin/instructor-booking/<int:booking_id>/approve', methods=['POST'])
+@admin_required
+def admin_approve_booking(booking_id):
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM instructor_bookings WHERE booking_id=%s AND status='pending'", (booking_id,))
+        booking = cursor.fetchone()
+        if not booking:
+            cursor.close(); conn.close()
+            return jsonify({"error": "Booking not found or already processed"}), 404
+        if booking['payment_status'] != 'paid':
+            cursor.close(); conn.close()
+            return jsonify({"error": "Cannot approve: Payment has not been completed yet. Please mark payment as Paid first."}), 400
+        cursor.execute("UPDATE instructor_bookings SET status='approved' WHERE booking_id=%s", (booking_id,))
+        cursor.close(); conn.close()
+        log_admin_activity(session['user_id'], 'Approve Instructor Booking', f"Booking ID: {booking_id}")
+        return jsonify({"message": "Booking approved successfully!"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/admin/instructor-booking/<int:booking_id>/reject', methods=['POST'])
+@admin_required
+def admin_reject_booking(booking_id):
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE instructor_bookings SET status='rejected' WHERE booking_id=%s AND status='pending'", (booking_id,))
+        cursor.close(); conn.close()
+        log_admin_activity(session['user_id'], 'Reject Instructor Booking', f"Booking ID: {booking_id}")
+        return jsonify({"message": "Booking rejected."})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/admin/instructor-booking/<int:booking_id>/mark-paid', methods=['POST'])
+@admin_required
+def admin_mark_booking_paid(booking_id):
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM instructor_bookings WHERE booking_id=%s AND payment_status='pending'", (booking_id,))
+        booking = cursor.fetchone()
+        if not booking:
+            cursor.close(); conn.close()
+            return jsonify({"error": "Booking not found or already paid"}), 404
+        cursor.execute("UPDATE instructor_bookings SET payment_status='paid' WHERE booking_id=%s", (booking_id,))
+        cursor.close(); conn.close()
+        log_admin_activity(session['user_id'], 'Mark Booking Paid', f"Booking ID: {booking_id}")
+        return jsonify({"message": "Booking payment marked as Paid!"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# =============================================
+#              INSTRUCTORS (Member-facing)
+# =============================================
+
+@app.route('/api/instructors', methods=['GET'])
+@member_required
+def get_active_instructors():
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT instructor_id, first_name, last_name, email, phone, gender, bio, session_rate FROM instructors WHERE status='active' ORDER BY first_name ASC")
+        instructors = cursor.fetchall()
+        cursor.close(); conn.close()
+        for i in instructors:
+            i['session_rate'] = float(i['session_rate'])
+        return jsonify(instructors)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/hire-instructor', methods=['POST'])
+@member_required
+def hire_instructor():
+    data = request.get_json()
+    required = ['instructor_id', 'booking_date', 'payment_method']
+    for field in required:
+        if not data.get(field):
+            return jsonify({"error": f"{field} is required"}), 400
+
+    payment_method = data['payment_method']
+    if payment_method not in ('online', 'walkin'):
+        return jsonify({"error": "Invalid payment method"}), 400
+
+    try:
+        booking_date = datetime.strptime(data['booking_date'], '%Y-%m-%d').date()
+        if booking_date < date.today():
+            return jsonify({"error": "Booking date cannot be in the past"}), 400
+    except ValueError:
+        return jsonify({"error": "Invalid date format"}), 400
+
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+
+    try:
+        cursor = conn.cursor(dictionary=True)
+        member_id = session['user_id']
+
+        # Get instructor details
+        cursor.execute("SELECT * FROM instructors WHERE instructor_id=%s AND status='active'", (data['instructor_id'],))
+        instructor = cursor.fetchone()
+        if not instructor:
+            cursor.close(); conn.close()
+            return jsonify({"error": "Instructor not found or inactive"}), 404
+
+        amount = float(instructor['session_rate'])
+        payment_status = 'paid' if payment_method == 'online' else 'pending'
+
+        cursor.execute("""
+            INSERT INTO instructor_bookings (member_id, instructor_id, booking_date, session_time, notes,
+                status, payment_method, payment_status, amount)
+            VALUES (%s, %s, %s, %s, %s, 'pending', %s, %s, %s)
+        """, (member_id, data['instructor_id'], booking_date,
+              data.get('session_time', ''), data.get('notes', ''),
+              payment_method, payment_status, amount))
+
+        booking_id = cursor.lastrowid
+        cursor.close(); conn.close()
+
+        # Get member name
+        conn2 = get_connection()
+        cursor2 = conn2.cursor(dictionary=True)
+        cursor2.execute("SELECT first_name, last_name FROM members WHERE member_id=%s", (member_id,))
+        member = cursor2.fetchone()
+        cursor2.close(); conn2.close()
+
+        import random, string
+        ref_code = 'HI-' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+
+        return jsonify({
+            "message": "Instructor hire request submitted!",
+            "booking_id": booking_id,
+            "reference_code": ref_code,
+            "instructor_name": f"{instructor['first_name']} {instructor['last_name']}",
+            "member_name": f"{member['first_name']} {member['last_name']}" if member else "Member",
+            "booking_date": str(booking_date),
+            "session_time": data.get('session_time', ''),
+            "amount": amount,
+            "payment_method": payment_method,
+            "payment_status": payment_status,
+            "date": str(date.today())
+        }), 201
+    except Exception as e:
+        logger.error(f"Hire instructor error: {e}")
         return jsonify({"error": str(e)}), 500
 
 # ================= RUN =================
