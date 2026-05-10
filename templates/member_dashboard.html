@@ -124,6 +124,10 @@
 
         <!-- ==================== INSTRUCTORS ==================== -->
         <div id="instructorsSection" class="content-section">
+            <!-- My Hired Instructors -->
+            <div id="myBookingsArea"></div>
+
+            <!-- Browse Instructors -->
             <div class="section-card">
                 <h2><i class="fas fa-chalkboard-teacher"></i> Fitness Instructors</h2>
                 <p style="color:#94a3b8;margin-bottom:20px;font-size:14px;">Browse available fitness instructors and subscribe to a training plan</p>
@@ -1419,7 +1423,101 @@
     let hirePaymentMethod = null;
     let hirePlanData = null;
 
+    async function loadMyBookings() {
+        const area = document.getElementById('myBookingsArea');
+        try {
+            const res = await fetch('/api/my-bookings');
+            const bookings = await res.json();
+            if (!bookings.length) { area.innerHTML = ''; return; }
+
+            const active = bookings.filter(b => b.status === 'pending' || b.status === 'approved');
+            const history = bookings.filter(b => b.status === 'completed' || b.status === 'rejected');
+
+            let html = '<div class="section-card" style="margin-bottom:20px;">';
+            html += '<h2><i class="fas fa-handshake"></i> My Hired Instructors</h2>';
+            html += '<p style="color:#94a3b8;margin-bottom:20px;font-size:14px;">Your instructor subscriptions and their details</p>';
+
+            if (active.length) {
+                active.forEach(b => { html += renderBookingCard(b); });
+            } else {
+                html += '<div style="color:#64748b;font-size:14px;padding:12px 0;">No active subscriptions.</div>';
+            }
+
+            if (history.length) {
+                html += `<div style="margin-top:16px;">`;
+                html += `<button onclick="document.getElementById('bookingHistory').style.display = document.getElementById('bookingHistory').style.display === 'none' ? 'block' : 'none'; this.querySelector('i').classList.toggle('fa-chevron-down'); this.querySelector('i').classList.toggle('fa-chevron-up');" style="background:rgba(148,163,184,0.08);border:1px solid rgba(148,163,184,0.15);border-radius:10px;padding:10px 16px;color:#94a3b8;font-size:13px;font-weight:600;cursor:pointer;width:100%;text-align:left;font-family:'Inter',sans-serif;">`;
+                html += `<i class="fas fa-chevron-down" style="margin-right:8px;"></i> Subscription History (${history.length})`;
+                html += `</button>`;
+                html += `<div id="bookingHistory" style="display:none;margin-top:12px;">`;
+                history.forEach(b => { html += renderBookingCard(b); });
+                html += `</div></div>`;
+            }
+
+            html += '</div>';
+            area.innerHTML = html;
+        } catch(e) { console.error('My bookings error:', e); area.innerHTML = ''; }
+    }
+
+    function renderBookingCard(b) {
+        const statusColor = b.status === 'approved' ? '#10b981' : b.status === 'pending' ? '#f59e0b' : b.status === 'completed' ? '#3b82f6' : '#ef4444';
+        const statusBadge = b.status === 'approved' ? 'badge-active' : b.status === 'pending' ? 'badge-pending' : b.status === 'completed' ? 'badge-paid' : 'badge-inactive';
+        const payBadge = b.payment_status === 'paid' ? 'badge-paid' : 'badge-pending';
+        const initials = (b.instructor_first?.[0] || '') + (b.instructor_last?.[0] || '');
+        const showContact = (b.status === 'approved' || b.status === 'completed');
+
+        let html = `<div style="background:rgba(15,23,42,0.5);border:1px solid rgba(148,163,184,0.12);border-radius:16px;padding:20px;margin-bottom:16px;border-left:4px solid ${statusColor};">`;
+
+        // Header
+        html += `<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px;">`;
+        html += `<div style="display:flex;align-items:center;gap:14px;">`;
+        html += `<div style="width:48px;height:48px;background:linear-gradient(135deg,#f97316,#ea580c);border-radius:14px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:16px;flex-shrink:0;">${initials}</div>`;
+        html += `<div>`;
+        html += `<div style="color:#fff;font-weight:700;font-size:16px;">${b.instructor_first} ${b.instructor_last}</div>`;
+        html += b.specialization ? `<div style="color:#f97316;font-size:13px;font-weight:600;">${b.specialization}</div>` : '';
+        html += `</div></div>`;
+        html += `<div style="display:flex;gap:8px;align-items:center;"><span style="color:#64748b;font-size:11px;font-weight:600;">Status:</span><span class="badge ${statusBadge}">${b.status}</span><span style="color:#64748b;font-size:11px;font-weight:600;margin-left:4px;">Payment:</span><span class="badge ${payBadge}">${b.payment_status}</span></div>`;
+        html += `</div>`;
+
+        // Details grid
+        html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">`;
+        html += `<div style="background:rgba(15,23,42,0.4);border:1px solid rgba(148,163,184,0.08);border-radius:10px;padding:12px;">`;
+        html += `<div style="color:#64748b;font-size:11px;text-transform:uppercase;font-weight:700;margin-bottom:4px;"><i class="fas fa-clipboard-list" style="color:#8b5cf6;"></i> Plan</div>`;
+        html += `<div style="color:#e2e8f0;font-weight:600;font-size:14px;">${b.plan_name}</div></div>`;
+
+        html += `<div style="background:rgba(15,23,42,0.4);border:1px solid rgba(148,163,184,0.08);border-radius:10px;padding:12px;">`;
+        html += `<div style="color:#64748b;font-size:11px;text-transform:uppercase;font-weight:700;margin-bottom:4px;"><i class="fas fa-calendar" style="color:#3b82f6;"></i> Period</div>`;
+        html += `<div style="color:#e2e8f0;font-weight:600;font-size:14px;">${b.start_date ? formatDate(b.start_date) : '--'} \u2192 ${b.end_date ? formatDate(b.end_date) : '--'}</div></div>`;
+
+        html += `<div style="background:rgba(15,23,42,0.4);border:1px solid rgba(148,163,184,0.08);border-radius:10px;padding:12px;">`;
+        html += `<div style="color:#64748b;font-size:11px;text-transform:uppercase;font-weight:700;margin-bottom:4px;"><i class="fas fa-clock" style="color:#10b981;"></i> Schedule</div>`;
+        html += `<div style="color:#e2e8f0;font-weight:600;font-size:14px;">${b.schedule_days || '--'}</div>`;
+        html += `<div style="color:#94a3b8;font-size:13px;">${b.time_start || '--'} - ${b.time_end || '--'}</div></div>`;
+
+        html += `<div style="background:rgba(15,23,42,0.4);border:1px solid rgba(148,163,184,0.08);border-radius:10px;padding:12px;">`;
+        html += `<div style="color:#64748b;font-size:11px;text-transform:uppercase;font-weight:700;margin-bottom:4px;"><i class="fas fa-peso-sign" style="color:#fbbf24;"></i> Amount</div>`;
+        html += `<div style="color:#e2e8f0;font-weight:600;font-size:14px;">${formatPeso(b.amount)}</div></div>`;
+        html += `</div>`;
+
+        // Contact info
+        if (showContact) {
+            html += `<div style="margin-top:14px;background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.15);border-radius:12px;padding:14px;">`;
+            html += `<div style="color:#6ee7b7;font-size:12px;font-weight:700;text-transform:uppercase;margin-bottom:8px;"><i class="fas fa-address-book"></i> Instructor Contact</div>`;
+            html += `<div style="display:flex;gap:16px;flex-wrap:wrap;">`;
+            if (b.instructor_email) html += `<a href="mailto:${b.instructor_email}" style="color:#94a3b8;font-size:13px;text-decoration:none;"><i class="fas fa-envelope" style="color:#3b82f6;"></i> ${b.instructor_email}</a>`;
+            if (b.instructor_phone) html += `<a href="tel:${b.instructor_phone}" style="color:#94a3b8;font-size:13px;text-decoration:none;"><i class="fas fa-phone" style="color:#10b981;"></i> ${b.instructor_phone}</a>`;
+            if (b.instructor_facebook) html += `<a href="${b.instructor_facebook}" target="_blank" style="color:#94a3b8;font-size:13px;text-decoration:none;"><i class="fab fa-facebook" style="color:#3b82f6;"></i> Facebook</a>`;
+            html += `</div></div>`;
+        } else if (b.status === 'pending') {
+            html += `<div style="margin-top:14px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.15);border-radius:12px;padding:12px;">`;
+            html += `<p style="color:#fbbf24;font-size:13px;margin:0;"><i class="fas fa-hourglass-half"></i> Awaiting approval \u2014 instructor contact info will be shown once approved.</p></div>`;
+        }
+
+        html += `</div>`;
+        return html;
+    }
+
     async function loadMemberInstructors() {
+        loadMyBookings();
         const c = document.getElementById('instructorsList');
         try {
             const res = await fetch('/api/instructors');

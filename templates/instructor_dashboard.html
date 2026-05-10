@@ -176,11 +176,14 @@
                 const statusBadge = b.status==='pending'?'badge-pending':b.status==='approved'?'badge-approved':b.status==='completed'?'badge-active':'badge-rejected';
                 const payBadge = b.payment_status==='paid'?'badge-paid':'badge-pending';
                 let actions = '';
+                const needsPay = b.payment_status === 'pending';
                 if (b.status === 'pending') {
                     actions = `<button class="btn btn-green btn-sm" onclick="approveClient(${b.booking_id})"><i class="fas fa-check"></i></button>
                                <button class="btn btn-red btn-sm" onclick="rejectClient(${b.booking_id})"><i class="fas fa-times"></i></button>`;
+                    if (needsPay) actions += ` <button class="btn btn-yellow btn-sm" onclick="markClientPaid(${b.booking_id})" title="Mark as Paid"><i class="fas fa-money-bill-wave"></i> Mark Paid</button>`;
                 } else if (b.status === 'approved') {
                     actions = `<button class="btn btn-blue btn-sm" onclick="completeClient(${b.booking_id})"><i class="fas fa-flag-checkered"></i> Complete</button>`;
+                    if (needsPay) actions += ` <button class="btn btn-yellow btn-sm" onclick="markClientPaid(${b.booking_id})" title="Mark as Paid"><i class="fas fa-money-bill-wave"></i> Mark Paid</button>`;
                 } else {
                     actions = `<span style="color:#64748b;font-size:12px;">${b.status}</span>`;
                 }
@@ -203,6 +206,7 @@
     async function approveClient(id) { if(!confirm('Approve this booking?'))return; try{const r=await fetch(`/api/instructor/booking/${id}/approve`,{method:'POST'});const d=await r.json();if(r.ok){showToast(d.message);loadClients();loadStats();}else showToast(d.error,'error');}catch(e){showToast('Failed','error');} }
     async function rejectClient(id) { if(!confirm('Reject this booking?'))return; try{const r=await fetch(`/api/instructor/booking/${id}/reject`,{method:'POST'});const d=await r.json();if(r.ok){showToast(d.message);loadClients();loadStats();}else showToast(d.error,'error');}catch(e){showToast('Failed','error');} }
     async function completeClient(id) { if(!confirm('Mark as completed?'))return; try{const r=await fetch(`/api/instructor/booking/${id}/complete`,{method:'POST'});const d=await r.json();if(r.ok){showToast(d.message);loadClients();loadStats();}else showToast(d.error,'error');}catch(e){showToast('Failed','error');} }
+    async function markClientPaid(id) { if(!confirm('Mark this booking as paid? Only do this after receiving payment from the member.'))return; try{const r=await fetch(`/api/instructor/booking/${id}/mark-paid`,{method:'POST'});const d=await r.json();if(r.ok){showToast(d.message);loadClients();loadStats();}else showToast(d.error,'error');}catch(e){showToast('Failed','error');} }
 
     // PLANS
     async function loadPlans() {

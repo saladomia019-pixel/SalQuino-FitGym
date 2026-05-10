@@ -943,7 +943,12 @@ def admin_get_members():
         return jsonify({"error": "Database unavailable"}), 500
     try:
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT member_id, first_name, last_name, email, phone, gender, status, join_date FROM members ORDER BY join_date DESC")
+        cursor.execute("""
+            SELECT DISTINCT m.member_id, m.first_name, m.last_name, m.email, m.phone, m.gender, m.status, m.join_date
+            FROM members m
+            INNER JOIN memberships ms ON m.member_id = ms.member_id
+            ORDER BY m.join_date DESC
+        """)
         members = cursor.fetchall()
         cursor.close(); conn.close()
         for m in members:
@@ -1736,6 +1741,44 @@ def hire_instructor():
         logger.error(f"Hire instructor error: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/my-bookings', methods=['GET'])
+@member_required
+def get_my_bookings():
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT b.booking_id, b.start_date, b.end_date, b.schedule_days,
+                   b.time_start, b.time_end, b.notes, b.status, b.payment_status,
+                   b.amount, b.created_at,
+                   i.first_name as instructor_first, i.last_name as instructor_last,
+                   i.email as instructor_email, i.phone as instructor_phone,
+                   i.specialization, i.facebook as instructor_facebook,
+                   ip.plan_name
+            FROM instructor_bookings b
+            JOIN instructors i ON b.instructor_id = i.instructor_id
+            JOIN instructor_plans ip ON b.plan_id = ip.plan_id
+            WHERE b.member_id = %s
+            ORDER BY b.created_at DESC
+        """, (session['user_id'],))
+        bookings = cursor.fetchall()
+        cursor.close(); conn.close()
+        for b in bookings:
+            for k in ['start_date', 'end_date', 'created_at']:
+                if b.get(k):
+                    b[k] = str(b[k])
+            if b.get('time_start'):
+                b['time_start'] = str(b['time_start'])
+            if b.get('time_end'):
+                b['time_end'] = str(b['time_end'])
+            b['amount'] = float(b['amount']) if b.get('amount') else 0
+        return jsonify(bookings)
+    except Exception as e:
+        logger.error(f"My bookings error: {e}")
+        return jsonify({"error": str(e)}), 500
+
 # =============================================
 #           INSTRUCTOR ROUTES
 # =============================================
@@ -1943,6 +1986,20 @@ def instructor_complete_booking(booking_id):
                        (booking_id, session['user_id']))
         conn.commit(); cursor.close(); conn.close()
         return jsonify({"message": "Booking marked completed"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/instructor/booking/<int:booking_id>/mark-paid', methods=['POST'])
+@login_required
+@instructor_required
+def instructor_mark_paid(booking_id):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE instructor_bookings SET payment_status='paid' WHERE booking_id=%s AND instructor_id=%s AND payment_status='pending'",
+                       (booking_id, session['user_id']))
+        conn.commit(); cursor.close(); conn.close()
+        return jsonify({"message": "Payment marked as paid"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
