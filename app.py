@@ -54,6 +54,14 @@ def member_required(f):
         return f(*args, **kwargs)
     return decorated
 
+def instructor_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if session.get('user_type') != 'instructor':
+            return redirect('/login')
+        return f(*args, **kwargs)
+    return decorated
+
 # =============================================
 #              PUBLIC ROUTES
 # =============================================
@@ -80,18 +88,36 @@ def login():
 
         try:
             cursor = conn.cursor(dictionary=True)
+            # Check members first
             cursor.execute("SELECT * FROM members WHERE email=%s", (email,))
             member = cursor.fetchone()
-            cursor.close()
-            conn.close()
 
             if member and check_password_hash(member['password'], password):
+                cursor.close(); conn.close()
                 session.clear()
                 session['user_id'] = member['member_id']
                 session['name'] = f"{member['first_name']} {member['last_name']}"
                 session['user_type'] = 'member'
                 flash("Log in successful", "success")
                 return redirect('/dashboard')
+
+            # Check instructors
+            cursor.execute("SELECT * FROM instructors WHERE email=%s", (email,))
+            instructor = cursor.fetchone()
+            cursor.close(); conn.close()
+
+            if instructor and check_password_hash(instructor['password'], password):
+                if instructor['status'] == 'pending':
+                    flash("Your instructor account is pending admin approval.", "error")
+                elif instructor['status'] == 'inactive':
+                    flash("Your instructor account has been deactivated.", "error")
+                else:
+                    session.clear()
+                    session['user_id'] = instructor['instructor_id']
+                    session['name'] = f"{instructor['first_name']} {instructor['last_name']}"
+                    session['user_type'] = 'instructor'
+                    flash("Log in successful", "success")
+                    return redirect('/instructor-dashboard')
             else:
                 flash("Invalid email or password", "error")
         except Exception as e:
@@ -104,6 +130,7 @@ def login():
 def register():
     if request.method == 'POST':
         try:
+            role = request.form.get('role', 'member').strip()
             data = {
                 'first_name': request.form.get('first_name', '').strip(),
                 'last_name': request.form.get('last_name', '').strip(),
@@ -114,6 +141,7 @@ def register():
                 'confirm_password': request.form.get('confirm_password', '')
             }
             safe = {k: v for k, v in data.items() if k not in ('password', 'confirm_password')}
+            safe['role'] = role
 
             if len(data['phone']) != 11 or not data['phone'].isdigit():
                 flash("Phone must be exactly 11 digits", "error")
@@ -136,24 +164,60 @@ def register():
                 flash("Database unavailable", "error")
                 return render_template('register.html', **safe)
 
-            cursor = conn.cursor()
-            cursor.execute("SELECT member_id FROM members WHERE email=%s OR phone=%s",
-                           (data['email'], data['phone']))
-            if cursor.fetchone():
-                cursor.close(); conn.close()
-                flash("Email or phone already registered", "error")
-                return render_template('register.html', **safe)
-
             hashed = generate_password_hash(data['password'])
-            cursor.execute("""
-                INSERT INTO members (first_name, last_name, gender, email, phone, password, join_date, status)
-                VALUES (%s, %s, %s, %s, %s, %s, CURDATE(), 'active')
-            """, (data['first_name'], data['last_name'], data['gender'],
-                  data['email'], data['phone'], hashed))
-            conn.commit()
-            cursor.close(); conn.close()
-            flash("Account created successfully! Please login.", "success")
-            return redirect('/login')
+            cursor = conn.cursor()
+
+            if role == 'instructor':
+                specialization = request.form.get('specialization', '').strip()
+                bio = request.form.get('bio', '').strip()
+                facebook = request.form.get('facebook', '').strip()
+
+                cursor.execute("SELECT instructor_id FROM instructors WHERE email=%s", (data['email'],))
+                if cursor.fetchone():
+                    cursor.close(); conn.close()
+                    flash("Email already registered as instructor", "error")
+                    return render_template('register.html', **safe)
+
+                # Also check members table
+                cursor.execute("SELECT member_id FROM members WHERE email=%s", (data['email'],))
+                if cursor.fetchone():
+                    cursor.close(); conn.close()
+                    flash("Email already registered as member", "error")
+                    return render_template('register.html', **safe)
+
+                cursor.execute("""
+                    INSERT INTO instructors (first_name, last_name, gender, email, phone, password, specialization, bio, facebook, status, hire_date)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending', CURDATE())
+                """, (data['first_name'], data['last_name'], data['gender'],
+                      data['email'], data['phone'], hashed, specialization, bio, facebook))
+                conn.commit()
+                cursor.close(); conn.close()
+                flash("Instructor account created! Please wait for admin approval before logging in.", "success")
+                return redirect('/login')
+            else:
+                cursor.execute("SELECT member_id FROM members WHERE email=%s OR phone=%s",
+                               (data['email'], data['phone']))
+                if cursor.fetchone():
+                    cursor.close(); conn.close()
+                    flash("Email or phone already registered", "error")
+                    return render_template('register.html', **safe)
+
+                # Also check instructors table
+                cursor.execute("SELECT instructor_id FROM instructors WHERE email=%s", (data['email'],))
+                if cursor.fetchone():
+                    cursor.close(); conn.close()
+                    flash("Email already registered as instructor", "error")
+                    return render_template('register.html', **safe)
+
+                cursor.execute("""
+                    INSERT INTO members (first_name, last_name, gender, email, phone, password, join_date, status)
+                    VALUES (%s, %s, %s, %s, %s, %s, CURDATE(), 'active')
+                """, (data['first_name'], data['last_name'], data['gender'],
+                      data['email'], data['phone'], hashed))
+                conn.commit()
+                cursor.close(); conn.close()
+                flash("Account created successfully! Please login.", "success")
+                return redirect('/login')
         except Exception as e:
             logger.error(f"Register error: {e}")
             flash(f"Registration failed: {str(e)}", "error")
@@ -776,13 +840,18 @@ def admin_stats():
         cursor.execute("SELECT COUNT(*) as count FROM membership_applications WHERE status='pending'")
         pending = cursor.fetchone()['count']
         cursor.execute("SELECT COALESCE(SUM(amount),0) as total FROM payments WHERE status='paid'")
-        revenue = cursor.fetchone()['total']
+        revenue = float(cursor.fetchone()['total'])
+        cursor.execute("SELECT COALESCE(SUM(admin_commission),0) as total FROM instructor_bookings WHERE payment_status='paid'")
+        instructor_commission = float(cursor.fetchone()['total'])
         cursor.execute("SELECT COUNT(*) as count FROM instructors WHERE status='active'")
         total_instructors = cursor.fetchone()['count']
+        cursor.execute("SELECT COUNT(*) as count FROM instructors WHERE status='pending'")
+        pending_instructors = cursor.fetchone()['count']
         cursor.close(); conn.close()
         return jsonify({"total_members": total_members, "active_memberships": active,
-                        "pending_requests": pending, "total_revenue": float(revenue),
-                        "total_instructors": total_instructors})
+                        "pending_requests": pending, "total_revenue": revenue + instructor_commission,
+                        "total_instructors": total_instructors, "pending_instructors": pending_instructors,
+                        "instructor_commission": instructor_commission})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -1474,18 +1543,24 @@ def admin_get_instructor_bookings():
         cursor = conn.cursor(dictionary=True)
         cursor.execute("""
             SELECT b.*, CONCAT(m.first_name,' ',m.last_name) as member_name,
-                   CONCAT(i.first_name,' ',i.last_name) as instructor_name
+                   CONCAT(i.first_name,' ',i.last_name) as instructor_name,
+                   ip.plan_name
             FROM instructor_bookings b
             JOIN members m ON b.member_id = m.member_id
             JOIN instructors i ON b.instructor_id = i.instructor_id
+            JOIN instructor_plans ip ON b.plan_id = ip.plan_id
             ORDER BY CASE b.status WHEN 'pending' THEN 1 WHEN 'approved' THEN 2 ELSE 3 END, b.created_at DESC
         """)
         bookings = cursor.fetchall()
         cursor.close(); conn.close()
         for b in bookings:
             b['amount'] = float(b['amount'])
-            b['booking_date'] = str(b['booking_date'])
-            b['created_at'] = str(b['created_at'])
+            b['admin_commission'] = float(b.get('admin_commission', 0))
+            b['instructor_earning'] = float(b.get('instructor_earning', 0))
+            for k in ['start_date', 'end_date', 'created_at']:
+                if b.get(k): b[k] = str(b[k])
+            for k in ['time_start', 'time_end']:
+                if b.get(k): b[k] = str(b[k])
         return jsonify(bookings)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -1573,7 +1648,7 @@ def get_active_instructors():
 @member_required
 def hire_instructor():
     data = request.get_json()
-    required = ['instructor_id', 'booking_date', 'payment_method']
+    required = ['instructor_id', 'plan_id', 'start_date', 'schedule_days', 'time_start', 'time_end', 'payment_method']
     for field in required:
         if not data.get(field):
             return jsonify({"error": f"{field} is required"}), 400
@@ -1583,9 +1658,9 @@ def hire_instructor():
         return jsonify({"error": "Invalid payment method"}), 400
 
     try:
-        booking_date = datetime.strptime(data['booking_date'], '%Y-%m-%d').date()
-        if booking_date < date.today():
-            return jsonify({"error": "Booking date cannot be in the past"}), 400
+        start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
+        if start_date < date.today():
+            return jsonify({"error": "Start date cannot be in the past"}), 400
     except ValueError:
         return jsonify({"error": "Invalid date format"}), 400
 
@@ -1597,45 +1672,61 @@ def hire_instructor():
         cursor = conn.cursor(dictionary=True)
         member_id = session['user_id']
 
-        # Get instructor details
+        # Get instructor
         cursor.execute("SELECT * FROM instructors WHERE instructor_id=%s AND status='active'", (data['instructor_id'],))
         instructor = cursor.fetchone()
         if not instructor:
             cursor.close(); conn.close()
             return jsonify({"error": "Instructor not found or inactive"}), 404
 
-        amount = float(instructor['session_rate'])
+        # Get plan
+        cursor.execute("SELECT * FROM instructor_plans WHERE plan_id=%s AND instructor_id=%s AND status='active'",
+                       (data['plan_id'], data['instructor_id']))
+        plan = cursor.fetchone()
+        if not plan:
+            cursor.close(); conn.close()
+            return jsonify({"error": "Plan not found"}), 404
+
+        amount = float(plan['price'])
+        admin_commission = round(amount * 0.30, 2)
+        instructor_earning = round(amount - admin_commission, 2)
         payment_status = 'paid' if payment_method == 'online' else 'pending'
 
+        from datetime import timedelta
+        end_date = start_date + timedelta(days=int(plan['duration_days']))
+        schedule_days = data['schedule_days'] if isinstance(data['schedule_days'], str) else ','.join(data['schedule_days'])
+
         cursor.execute("""
-            INSERT INTO instructor_bookings (member_id, instructor_id, booking_date, session_time, notes,
-                status, payment_method, payment_status, amount)
-            VALUES (%s, %s, %s, %s, %s, 'pending', %s, %s, %s)
-        """, (member_id, data['instructor_id'], booking_date,
-              data.get('session_time', ''), data.get('notes', ''),
-              payment_method, payment_status, amount))
+            INSERT INTO instructor_bookings (member_id, instructor_id, plan_id, start_date, end_date,
+                schedule_days, time_start, time_end, notes, status, payment_method, payment_status,
+                amount, admin_commission, instructor_earning)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s, %s, %s, %s, %s)
+        """, (member_id, data['instructor_id'], data['plan_id'], start_date, end_date,
+              schedule_days, data['time_start'], data['time_end'], data.get('notes', ''),
+              payment_method, payment_status, amount, admin_commission, instructor_earning))
 
         booking_id = cursor.lastrowid
-        cursor.close(); conn.close()
 
         # Get member name
-        conn2 = get_connection()
-        cursor2 = conn2.cursor(dictionary=True)
-        cursor2.execute("SELECT first_name, last_name FROM members WHERE member_id=%s", (member_id,))
-        member = cursor2.fetchone()
-        cursor2.close(); conn2.close()
+        cursor.execute("SELECT first_name, last_name FROM members WHERE member_id=%s", (member_id,))
+        member = cursor.fetchone()
+        conn.commit(); cursor.close(); conn.close()
 
         import random, string
         ref_code = 'HI-' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
         return jsonify({
-            "message": "Instructor hire request submitted!",
+            "message": "Instructor subscription request submitted!",
             "booking_id": booking_id,
             "reference_code": ref_code,
             "instructor_name": f"{instructor['first_name']} {instructor['last_name']}",
             "member_name": f"{member['first_name']} {member['last_name']}" if member else "Member",
-            "booking_date": str(booking_date),
-            "session_time": data.get('session_time', ''),
+            "plan_name": plan['plan_name'],
+            "start_date": str(start_date),
+            "end_date": str(end_date),
+            "schedule_days": schedule_days,
+            "time_start": data['time_start'],
+            "time_end": data['time_end'],
             "amount": amount,
             "payment_method": payment_method,
             "payment_status": payment_status,
@@ -1643,6 +1734,295 @@ def hire_instructor():
         }), 201
     except Exception as e:
         logger.error(f"Hire instructor error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# =============================================
+#           INSTRUCTOR ROUTES
+# =============================================
+
+@app.route('/instructor-dashboard')
+@login_required
+@instructor_required
+def instructor_dashboard():
+    return render_template('instructor_dashboard.html', user={'name': session.get('name')})
+
+@app.route('/api/instructor/profile', methods=['GET'])
+@login_required
+@instructor_required
+def instructor_get_profile():
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM instructors WHERE instructor_id=%s", (session['user_id'],))
+        instr = cursor.fetchone()
+        cursor.close(); conn.close()
+        if instr:
+            for k in ['hire_date', 'created_at']:
+                if instr.get(k): instr[k] = str(instr[k])
+            instr.pop('password', None)
+        return jsonify(instr)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/instructor/profile', methods=['PUT'])
+@login_required
+@instructor_required
+def instructor_update_profile():
+    try:
+        data = request.get_json()
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE instructors SET first_name=%s, last_name=%s, phone=%s, bio=%s,
+            specialization=%s, facebook=%s WHERE instructor_id=%s
+        """, (data.get('first_name'), data.get('last_name'), data.get('phone'),
+              data.get('bio'), data.get('specialization'), data.get('facebook'), session['user_id']))
+        conn.commit(); cursor.close(); conn.close()
+        session['name'] = f"{data.get('first_name')} {data.get('last_name')}"
+        return jsonify({"message": "Profile updated"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/instructor/change-password', methods=['POST'])
+@login_required
+@instructor_required
+def instructor_change_password():
+    try:
+        data = request.get_json()
+        if data['new_password'] != data['confirm_password']:
+            return jsonify({"error": "Passwords don't match"}), 400
+        if len(data['new_password']) < 6:
+            return jsonify({"error": "Password must be at least 6 characters"}), 400
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT password FROM instructors WHERE instructor_id=%s", (session['user_id'],))
+        instr = cursor.fetchone()
+        if not instr or not check_password_hash(instr['password'], data['current_password']):
+            cursor.close(); conn.close()
+            return jsonify({"error": "Current password is incorrect"}), 400
+        cursor.execute("UPDATE instructors SET password=%s WHERE instructor_id=%s",
+                       (generate_password_hash(data['new_password']), session['user_id']))
+        conn.commit(); cursor.close(); conn.close()
+        return jsonify({"message": "Password changed successfully"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ---- Instructor Plans CRUD ----
+@app.route('/api/instructor/plans', methods=['GET'])
+@login_required
+@instructor_required
+def instructor_get_plans():
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM instructor_plans WHERE instructor_id=%s ORDER BY created_at DESC", (session['user_id'],))
+        plans = cursor.fetchall()
+        cursor.close(); conn.close()
+        for p in plans:
+            if p.get('created_at'): p['created_at'] = str(p['created_at'])
+        return jsonify(plans)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/instructor/plans', methods=['POST'])
+@login_required
+@instructor_required
+def instructor_create_plan():
+    try:
+        data = request.get_json()
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO instructor_plans (instructor_id, plan_name, duration_days, price, description, status)
+            VALUES (%s, %s, %s, %s, %s, 'active')
+        """, (session['user_id'], data['plan_name'], data['duration_days'], data['price'], data.get('description','')))
+        conn.commit(); cursor.close(); conn.close()
+        return jsonify({"message": "Plan created"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/instructor/plans/<int:plan_id>', methods=['PUT'])
+@login_required
+@instructor_required
+def instructor_update_plan(plan_id):
+    try:
+        data = request.get_json()
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE instructor_plans SET plan_name=%s, duration_days=%s, price=%s, description=%s, status=%s
+            WHERE plan_id=%s AND instructor_id=%s
+        """, (data['plan_name'], data['duration_days'], data['price'], data.get('description',''),
+              data.get('status','active'), plan_id, session['user_id']))
+        conn.commit(); cursor.close(); conn.close()
+        return jsonify({"message": "Plan updated"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/instructor/plans/<int:plan_id>/toggle', methods=['POST'])
+@login_required
+@instructor_required
+def instructor_toggle_plan(plan_id):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT status FROM instructor_plans WHERE plan_id=%s AND instructor_id=%s", (plan_id, session['user_id']))
+        plan = cursor.fetchone()
+        if not plan: return jsonify({"error": "Plan not found"}), 404
+        new_status = 'inactive' if plan['status'] == 'active' else 'active'
+        cursor.execute("UPDATE instructor_plans SET status=%s WHERE plan_id=%s", (new_status, plan_id))
+        conn.commit(); cursor.close(); conn.close()
+        return jsonify({"message": f"Plan {new_status}"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ---- Instructor Bookings (Clients) ----
+@app.route('/api/instructor/clients', methods=['GET'])
+@login_required
+@instructor_required
+def instructor_get_clients():
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT b.*, ip.plan_name, ip.duration_days,
+                   CONCAT(m.first_name,' ',m.last_name) as member_name, m.email as member_email, m.phone as member_phone, m.gender as member_gender
+            FROM instructor_bookings b
+            JOIN members m ON b.member_id=m.member_id
+            JOIN instructor_plans ip ON b.plan_id=ip.plan_id
+            WHERE b.instructor_id=%s
+            ORDER BY b.created_at DESC
+        """, (session['user_id'],))
+        bookings = cursor.fetchall()
+        cursor.close(); conn.close()
+        for b in bookings:
+            for k in ['start_date','end_date','created_at']:
+                if b.get(k): b[k] = str(b[k])
+            for k in ['time_start','time_end']:
+                if b.get(k): b[k] = str(b[k])
+        return jsonify(bookings)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/instructor/booking/<int:booking_id>/approve', methods=['POST'])
+@login_required
+@instructor_required
+def instructor_approve_booking(booking_id):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE instructor_bookings SET status='approved' WHERE booking_id=%s AND instructor_id=%s AND status='pending'",
+                       (booking_id, session['user_id']))
+        conn.commit(); cursor.close(); conn.close()
+        return jsonify({"message": "Booking approved"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/instructor/booking/<int:booking_id>/reject', methods=['POST'])
+@login_required
+@instructor_required
+def instructor_reject_booking(booking_id):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE instructor_bookings SET status='rejected' WHERE booking_id=%s AND instructor_id=%s AND status='pending'",
+                       (booking_id, session['user_id']))
+        conn.commit(); cursor.close(); conn.close()
+        return jsonify({"message": "Booking rejected"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/instructor/booking/<int:booking_id>/complete', methods=['POST'])
+@login_required
+@instructor_required
+def instructor_complete_booking(booking_id):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE instructor_bookings SET status='completed' WHERE booking_id=%s AND instructor_id=%s AND status='approved'",
+                       (booking_id, session['user_id']))
+        conn.commit(); cursor.close(); conn.close()
+        return jsonify({"message": "Booking marked completed"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/instructor/stats', methods=['GET'])
+@login_required
+@instructor_required
+def instructor_stats():
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        iid = session['user_id']
+        cursor.execute("SELECT COUNT(*) as c FROM instructor_bookings WHERE instructor_id=%s AND status='approved'", (iid,))
+        active_clients = cursor.fetchone()['c']
+        cursor.execute("SELECT COUNT(*) as c FROM instructor_bookings WHERE instructor_id=%s AND status='pending'", (iid,))
+        pending = cursor.fetchone()['c']
+        cursor.execute("SELECT COALESCE(SUM(instructor_earning),0) as e FROM instructor_bookings WHERE instructor_id=%s AND payment_status='paid'", (iid,))
+        total_earnings = float(cursor.fetchone()['e'])
+        cursor.execute("SELECT COUNT(*) as c FROM instructor_bookings WHERE instructor_id=%s AND status='completed'", (iid,))
+        completed = cursor.fetchone()['c']
+        cursor.close(); conn.close()
+        return jsonify({"active_clients": active_clients, "pending_requests": pending,
+                        "total_earnings": total_earnings, "completed_sessions": completed})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/instructor/chart/monthly-earnings', methods=['GET'])
+@login_required
+@instructor_required
+def instructor_monthly_earnings():
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT DATE_FORMAT(created_at, '%%Y-%%m') as month, SUM(instructor_earning) as total
+            FROM instructor_bookings WHERE instructor_id=%s AND payment_status='paid'
+            GROUP BY month ORDER BY month DESC LIMIT 6
+        """, (session['user_id'],))
+        rows = cursor.fetchall()
+        cursor.close(); conn.close()
+        rows.reverse()
+        labels = [r['month'] for r in rows]
+        values = [float(r['total']) for r in rows]
+        return jsonify({"labels": labels, "values": values})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/instructor/chart/client-status', methods=['GET'])
+@login_required
+@instructor_required
+def instructor_client_status():
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT status, COUNT(*) as count FROM instructor_bookings
+            WHERE instructor_id=%s GROUP BY status
+        """, (session['user_id'],))
+        rows = cursor.fetchall()
+        cursor.close(); conn.close()
+        labels = [r['status'].capitalize() for r in rows]
+        values = [r['count'] for r in rows]
+        return jsonify({"labels": labels, "values": values})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ---- Member: Browse Instructor Plans & Subscribe ----
+@app.route('/api/instructor/<int:instructor_id>/plans', methods=['GET'])
+@login_required
+@member_required
+def member_get_instructor_plans(instructor_id):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM instructor_plans WHERE instructor_id=%s AND status='active'", (instructor_id,))
+        plans = cursor.fetchall()
+        cursor.close(); conn.close()
+        for p in plans:
+            if p.get('created_at'): p['created_at'] = str(p['created_at'])
+        return jsonify(plans)
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 # ================= RUN =================

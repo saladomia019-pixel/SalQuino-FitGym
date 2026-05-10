@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instructor Dashboard - SalQuino FitGym</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="dashboard-container">
+    <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo"><i class="fas fa-dumbbell"></i> SalQuino FitGym</div>
+            <div class="user-info">
+                <div class="avatar" style="background:linear-gradient(135deg,#f97316,#ea580c);">{{ user.name[0] | upper }}</div>
+                <div>
+                    <div class="user-name">{{ user.name }}</div>
+                    <div class="user-role">Instructor</div>
+                </div>
+            </div>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="#" onclick="showSection('overview')" class="active"><i class="fas fa-home"></i> Dashboard</a>
+            <a href="#" onclick="showSection('clients')"><i class="fas fa-users"></i> My Clients</a>
+            <a href="#" onclick="showSection('plans')"><i class="fas fa-clipboard-list"></i> My Plans</a>
+            <a href="#" onclick="showSection('profile')"><i class="fas fa-user"></i> My Profile</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </div>
+    </div>
+
+    <div class="main-content" id="mainContent">
+        <div class="topbar">
+            <div class="hamburger" onclick="toggleSidebar()"><i class="fas fa-bars"></i></div>
+            <h1 id="pageTitle">Dashboard</h1>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <div class="flash-msg flash-{{ category }}" style="margin:16px 0;">{{ message }}
+                    <button type="button" class="flash-close" onclick="this.closest('.flash-msg').remove()">&times;</button>
+                </div>
+            {% endfor %}
+        {% endwith %}
+
+        <!-- OVERVIEW -->
+        <div id="overviewSection" class="content-section active">
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-label">Active Clients</div><div class="stat-value green" id="sClients">0</div></div>
+                <div class="stat-card"><div class="stat-label">Pending Requests</div><div class="stat-value yellow" id="sPending">0</div></div>
+                <div class="stat-card"><div class="stat-label">Total Earnings</div><div class="stat-value blue" id="sEarnings">₱0</div></div>
+                <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-value purple" id="sCompleted">0</div></div>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3><i class="fas fa-chart-bar" style="color:#10b981;"></i> Monthly Earnings</h3>
+                    <div class="chart-container"><canvas id="earningsChart"></canvas></div>
+                </div>
+                <div class="chart-card">
+                    <h3><i class="fas fa-chart-pie" style="color:#8b5cf6;"></i> Client Status</h3>
+                    <div class="chart-container"><canvas id="statusChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CLIENTS -->
+        <div id="clientsSection" class="content-section">
+            <div class="section-card">
+                <h2><i class="fas fa-users"></i> My Clients</h2>
+                <div id="clientsContent"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><h3>Loading...</h3></div></div>
+            </div>
+        </div>
+
+        <!-- PLANS -->
+        <div id="plansSection" class="content-section">
+            <div class="section-card">
+                <h2 style="justify-content:space-between;"><span><i class="fas fa-clipboard-list"></i> My Subscription Plans</span>
+                    <button class="btn btn-green btn-sm" onclick="openCreatePlan()"><i class="fas fa-plus"></i> Add Plan</button>
+                </h2>
+                <div id="plansContent"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><h3>Loading...</h3></div></div>
+            </div>
+        </div>
+
+        <!-- PROFILE -->
+        <div id="profileSection" class="content-section">
+            <div class="section-card">
+                <h2><i class="fas fa-user"></i> My Profile</h2>
+                <div id="profileContent"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><h3>Loading...</h3></div></div>
+            </div>
+            <div class="section-card">
+                <h2><i class="fas fa-lock"></i> Change Password</h2>
+                <div style="max-width:500px;">
+                    <div class="form-group"><label>Current Password</label><input type="password" id="currentPw" placeholder="Current password"></div>
+                    <div class="form-group"><label>New Password</label><input type="password" id="newPw" placeholder="Min 6 characters"></div>
+                    <div class="form-group"><label>Confirm Password</label><input type="password" id="confirmPw" placeholder="Confirm new password"></div>
+                    <button class="btn btn-blue btn-lg" onclick="changePassword()" style="margin-top:8px;"><i class="fas fa-key"></i> Update Password</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PLAN MODAL -->
+<div class="modal-overlay" id="planModal">
+    <div class="modal">
+        <button class="close-btn" onclick="closeModal('planModal')">&times;</button>
+        <h3 id="planModalTitle"><i class="fas fa-plus"></i> Create Plan</h3>
+        <input type="hidden" id="editPlanId">
+        <div class="form-group"><label>Plan Name</label><input type="text" id="planName" placeholder="e.g. Monthly Coaching"></div>
+        <div class="form-group"><label>Duration (Days)</label><input type="number" id="planDuration" placeholder="30" min="1"></div>
+        <div class="form-group"><label>Price (₱)</label><input type="number" id="planPrice" placeholder="2000" step="0.01" min="0"></div>
+        <div class="form-group"><label>Description</label><textarea id="planDesc" placeholder="Describe what's included..." style="width:100%;height:80px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);border-radius:10px;color:#fff;padding:12px;font-family:'Inter',sans-serif;resize:vertical;"></textarea></div>
+        <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.15);border-radius:10px;padding:12px;margin-bottom:16px;">
+            <p style="color:#94a3b8;font-size:12px;"><i class="fas fa-info-circle" style="color:#3b82f6;"></i> 30% of the plan price goes to the gym as commission. You earn the remaining 70%.</p>
+        </div>
+        <button class="btn btn-blue btn-lg" style="width:100%;" onclick="savePlan()"><i class="fas fa-save"></i> Save Plan</button>
+    </div>
+</div>
+
+<script src="/static/script.js"></script>
+<script>
+    let earningsChartInst, statusChartInst;
+
+    async function loadStats() {
+        try {
+            const res = await fetch('/api/instructor/stats');
+            const s = await res.json();
+            document.getElementById('sClients').textContent = s.active_clients;
+            document.getElementById('sPending').textContent = s.pending_requests;
+            document.getElementById('sEarnings').textContent = formatPeso(s.total_earnings);
+            document.getElementById('sCompleted').textContent = s.completed_sessions;
+        } catch(e) { console.error(e); }
+    }
+
+    async function loadCharts() {
+        const colors = ['#3b82f6','#8b5cf6','#f59e0b','#10b981','#ef4444','#ec4899'];
+        try {
+            const res = await fetch('/api/instructor/chart/monthly-earnings');
+            const data = await res.json();
+            const ctx = document.getElementById('earningsChart').getContext('2d');
+            if (earningsChartInst) earningsChartInst.destroy();
+            earningsChartInst = new Chart(ctx, {
+                type:'bar', data:{ labels:data.labels, datasets:[{ label:'Earnings (₱)', data:data.values,
+                    backgroundColor:data.values.map((_,i)=>colors[i%colors.length]), borderRadius:8, maxBarThickness:50 }] },
+                options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+                    scales:{ y:{beginAtZero:true, grid:{color:'rgba(148,163,184,0.08)'}, ticks:{color:'#64748b',callback:v=>'₱'+v.toLocaleString()}},
+                             x:{grid:{display:false}, ticks:{color:'#94a3b8'}} } }
+            });
+        } catch(e) {}
+        try {
+            const res = await fetch('/api/instructor/chart/client-status');
+            const data = await res.json();
+            const ctx = document.getElementById('statusChart').getContext('2d');
+            if (statusChartInst) statusChartInst.destroy();
+            statusChartInst = new Chart(ctx, {
+                type:'doughnut', data:{ labels:data.labels, datasets:[{ data:data.values, backgroundColor:colors.slice(0,data.labels.length),
+                    borderColor:'rgba(15,23,42,0.8)', borderWidth:3, hoverOffset:8 }] },
+                options:{ responsive:true, maintainAspectRatio:false, cutout:'65%',
+                    plugins:{ legend:{ position:'bottom', labels:{color:'#94a3b8',padding:16,usePointStyle:true,font:{size:12,family:'Inter'}} } } }
+            });
+        } catch(e) {}
+    }
+
+    async function loadClients() {
+        const c = document.getElementById('clientsContent');
+        try {
+            const res = await fetch('/api/instructor/clients');
+            const clients = await res.json();
+            if (!clients.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-users"></i><h3>No clients yet</h3><p>When members subscribe to your plans, they will appear here</p></div>'; return; }
+            let html = '<div class="table-wrap"><table><tr><th>Member</th><th>Plan</th><th>Schedule</th><th>Time</th><th>Dates</th><th>Amount</th><th>Payment</th><th>Status</th><th>Actions</th></tr>';
+            clients.forEach(b => {
+                const statusBadge = b.status==='pending'?'badge-pending':b.status==='approved'?'badge-approved':b.status==='completed'?'badge-active':'badge-rejected';
+                const payBadge = b.payment_status==='paid'?'badge-paid':'badge-pending';
+                let actions = '';
+                if (b.status === 'pending') {
+                    actions = `<button class="btn btn-green btn-sm" onclick="approveClient(${b.booking_id})"><i class="fas fa-check"></i></button>
+                               <button class="btn btn-red btn-sm" onclick="rejectClient(${b.booking_id})"><i class="fas fa-times"></i></button>`;
+                } else if (b.status === 'approved') {
+                    actions = `<button class="btn btn-blue btn-sm" onclick="completeClient(${b.booking_id})"><i class="fas fa-flag-checkered"></i> Complete</button>`;
+                } else {
+                    actions = `<span style="color:#64748b;font-size:12px;">${b.status}</span>`;
+                }
+                html += `<tr>
+                    <td><strong>${b.member_name}</strong><br><span style="color:#64748b;font-size:11px;">${b.member_email||''}</span></td>
+                    <td>${b.plan_name}</td>
+                    <td><span style="font-size:12px;">${b.schedule_days}</span></td>
+                    <td><span style="font-size:12px;">${b.time_start} - ${b.time_end}</span></td>
+                    <td style="font-size:12px;">${formatDate(b.start_date)}<br>→ ${formatDate(b.end_date)}</td>
+                    <td>${formatPeso(b.amount)}</td>
+                    <td><span class="badge ${payBadge}">${b.payment_status}</span></td>
+                    <td><span class="badge ${statusBadge}">${b.status}</span></td>
+                    <td style="display:flex;gap:6px;flex-wrap:wrap;">${actions}</td></tr>`;
+            });
+            html += '</table></div>';
+            c.innerHTML = html;
+        } catch(e) { c.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error</h3></div>'; }
+    }
+
+    async function approveClient(id) { if(!confirm('Approve this booking?'))return; try{const r=await fetch(`/api/instructor/booking/${id}/approve`,{method:'POST'});const d=await r.json();if(r.ok){showToast(d.message);loadClients();loadStats();}else showToast(d.error,'error');}catch(e){showToast('Failed','error');} }
+    async function rejectClient(id) { if(!confirm('Reject this booking?'))return; try{const r=await fetch(`/api/instructor/booking/${id}/reject`,{method:'POST'});const d=await r.json();if(r.ok){showToast(d.message);loadClients();loadStats();}else showToast(d.error,'error');}catch(e){showToast('Failed','error');} }
+    async function completeClient(id) { if(!confirm('Mark as completed?'))return; try{const r=await fetch(`/api/instructor/booking/${id}/complete`,{method:'POST'});const d=await r.json();if(r.ok){showToast(d.message);loadClients();loadStats();}else showToast(d.error,'error');}catch(e){showToast('Failed','error');} }
+
+    // PLANS
+    async function loadPlans() {
+        const c = document.getElementById('plansContent');
+        try {
+            const res = await fetch('/api/instructor/plans');
+            const plans = await res.json();
+            if (!plans.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-clipboard-list"></i><h3>No plans yet</h3><p>Create your first subscription plan for members to hire you</p></div>'; return; }
+            let html = '<div class="table-wrap"><table><tr><th>Name</th><th>Duration</th><th>Price</th><th>Your Earning (70%)</th><th>Status</th><th>Actions</th></tr>';
+            plans.forEach(p => {
+                const badge = p.status==='active'?'badge-active':'badge-inactive';
+                const earning = (parseFloat(p.price)*0.7).toFixed(2);
+                const toggleBtn = p.status==='active'
+                    ? `<button class="btn btn-red btn-sm" onclick="togglePlan(${p.plan_id})"><i class="fas fa-ban"></i></button>`
+                    : `<button class="btn btn-green btn-sm" onclick="togglePlan(${p.plan_id})"><i class="fas fa-check"></i></button>`;
+                html += `<tr>
+                    <td><strong>${p.plan_name}</strong>${p.description?'<br><span style="color:#64748b;font-size:11px;">'+p.description+'</span>':''}</td>
+                    <td>${p.duration_days} days</td>
+                    <td>${formatPeso(p.price)}</td>
+                    <td style="color:#10b981;font-weight:700;">${formatPeso(earning)}</td>
+                    <td><span class="badge ${badge}">${p.status}</span></td>
+                    <td style="display:flex;gap:6px;">
+                        <button class="btn btn-yellow btn-sm" onclick='openEditPlan(${JSON.stringify(p).replace(/\x27/g,"&#39;")})'><i class="fas fa-edit"></i></button>
+                        ${toggleBtn}
+                    </td></tr>`;
+            });
+            html += '</table></div>';
+            c.innerHTML = html;
+        } catch(e) { c.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error</h3></div>'; }
+    }
+
+    function openCreatePlan() {
+        document.getElementById('editPlanId').value='';
+        document.getElementById('planName').value='';
+        document.getElementById('planDuration').value='';
+        document.getElementById('planPrice').value='';
+        document.getElementById('planDesc').value='';
+        document.getElementById('planModalTitle').innerHTML='<i class="fas fa-plus"></i> Create Plan';
+        openModal('planModal');
+    }
+    function openEditPlan(p) {
+        document.getElementById('editPlanId').value=p.plan_id;
+        document.getElementById('planName').value=p.plan_name;
+        document.getElementById('planDuration').value=p.duration_days;
+        document.getElementById('planPrice').value=p.price;
+        document.getElementById('planDesc').value=p.description||'';
+        document.getElementById('planModalTitle').innerHTML='<i class="fas fa-edit"></i> Edit Plan';
+        openModal('planModal');
+    }
+    async function savePlan() {
+        const id = document.getElementById('editPlanId').value;
+        const payload = { plan_name:document.getElementById('planName').value.trim(), duration_days:parseInt(document.getElementById('planDuration').value),
+            price:parseFloat(document.getElementById('planPrice').value), description:document.getElementById('planDesc').value.trim() };
+        if(!payload.plan_name||!payload.duration_days||!payload.price){showToast('Fill all fields','error');return;}
+        try {
+            const url=id?`/api/instructor/plans/${id}`:'/api/instructor/plans';
+            const method=id?'PUT':'POST';
+            const res=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+            const data=await res.json();
+            if(res.ok){showToast(data.message);closeModal('planModal');loadPlans();}else showToast(data.error,'error');
+        } catch(e){showToast('Save failed','error');}
+    }
+    async function togglePlan(id) {
+        try{const r=await fetch(`/api/instructor/plans/${id}/toggle`,{method:'POST'});const d=await r.json();if(r.ok){showToast(d.message);loadPlans();}else showToast(d.error,'error');}catch(e){showToast('Failed','error');}
+    }
+
+    // PROFILE
+    async function loadProfile() {
+        const c = document.getElementById('profileContent');
+        try {
+            const res = await fetch('/api/instructor/profile');
+            const p = await res.json();
+            c.innerHTML = `
+                <div class="profile-grid">
+                    <div class="profile-avatar" style="background:linear-gradient(135deg,#f97316,#ea580c);">${p.first_name[0]}${p.last_name[0]}</div>
+                    <div class="profile-info">
+                        <div class="profile-name">${p.first_name} ${p.last_name}</div>
+                        <div class="profile-email"><i class="fas fa-envelope"></i> ${p.email}</div>
+                        <div class="profile-meta"><i class="fas fa-phone"></i> ${p.phone||'--'}</div>
+                        <div class="profile-meta"><i class="fas fa-venus-mars"></i> ${p.gender}</div>
+                        <div class="profile-meta"><i class="fas fa-star"></i> ${p.specialization||'Not set'}</div>
+                        ${p.facebook?'<div class="profile-meta"><i class="fab fa-facebook"></i> '+p.facebook+'</div>':''}
+                        <div class="profile-meta"><i class="fas fa-calendar"></i> Joined ${formatDate(p.hire_date)}</div>
+                    </div>
+                </div>
+                <div style="margin-top:24px;border-top:1px solid rgba(148,163,184,0.1);padding-top:24px;">
+                    <button class="btn btn-blue btn-sm" onclick="document.getElementById('editProfForm').style.display='block'" style="margin-bottom:16px;"><i class="fas fa-edit"></i> Edit Profile</button>
+                    <div id="editProfForm" style="display:none;max-width:500px;">
+                        <div class="form-group"><label>First Name</label><input type="text" id="epFirst" value="${p.first_name}"></div>
+                        <div class="form-group"><label>Last Name</label><input type="text" id="epLast" value="${p.last_name}"></div>
+                        <div class="form-group"><label>Phone</label><input type="tel" id="epPhone" value="${p.phone||''}" maxlength="11"></div>
+                        <div class="form-group"><label>Specialization</label><input type="text" id="epSpec" value="${p.specialization||''}"></div>
+                        <div class="form-group"><label>Bio</label><textarea id="epBio" style="width:100%;height:80px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);border-radius:10px;color:#fff;padding:12px;font-family:'Inter',sans-serif;resize:vertical;">${p.bio||''}</textarea></div>
+                        <div class="form-group"><label>Facebook</label><input type="text" id="epFb" value="${p.facebook||''}"></div>
+                        <div style="display:flex;gap:10px;margin-top:8px;">
+                            <button class="btn btn-blue btn-lg" style="flex:1;" onclick="saveProfile()"><i class="fas fa-save"></i> Save</button>
+                            <button class="btn btn-red btn-lg" style="flex:1;" onclick="document.getElementById('editProfForm').style.display='none'"><i class="fas fa-times"></i> Cancel</button>
+                        </div>
+                    </div>
+                </div>`;
+        } catch(e) { c.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error</h3></div>'; }
+    }
+    async function saveProfile() {
+        const payload = { first_name:document.getElementById('epFirst').value.trim(), last_name:document.getElementById('epLast').value.trim(),
+            phone:document.getElementById('epPhone').value.trim(), specialization:document.getElementById('epSpec').value.trim(),
+            bio:document.getElementById('epBio').value.trim(), facebook:document.getElementById('epFb').value.trim() };
+        try { const r=await fetch('/api/instructor/profile',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+            const d=await r.json(); if(r.ok){showToast(d.message);loadProfile();document.querySelector('.user-name').textContent=payload.first_name+' '+payload.last_name;}else showToast(d.error,'error');
+        } catch(e){showToast('Failed','error');}
+    }
+    async function changePassword() {
+        const payload = { current_password:document.getElementById('currentPw').value, new_password:document.getElementById('newPw').value, confirm_password:document.getElementById('confirmPw').value };
+        if(!payload.current_password||!payload.new_password||!payload.confirm_password){showToast('All fields required','error');return;}
+        try { const r=await fetch('/api/instructor/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+            const d=await r.json(); if(r.ok){showToast(d.message);document.getElementById('currentPw').value='';document.getElementById('newPw').value='';document.getElementById('confirmPw').value='';}else showToast(d.error,'error');
+        } catch(e){showToast('Failed','error');}
+    }
+
+    // SECTION SWITCHING
+    const origShowSection = showSection;
+    showSection = function(name) {
+        origShowSection(name);
+        document.getElementById('pageTitle').textContent = {overview:'Dashboard',clients:'My Clients',plans:'My Plans',profile:'My Profile'}[name]||name;
+        if(name==='overview'){loadStats();loadCharts();}
+        else if(name==='clients')loadClients();
+        else if(name==='plans')loadPlans();
+        else if(name==='profile')loadProfile();
+    };
+
+    document.addEventListener('DOMContentLoaded', () => { loadStats(); loadCharts(); });
+</script>
+</body>
+</html>

@@ -174,41 +174,70 @@ CREATE TABLE IF NOT EXISTS `admin_activity_logs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================
--- 11. INSTRUCTORS
+-- 11. INSTRUCTORS (Self-Registration with Admin Approval)
 -- =============================================
 CREATE TABLE IF NOT EXISTS `instructors` (
   `instructor_id` INT NOT NULL AUTO_INCREMENT,
   `first_name` VARCHAR(100) NOT NULL,
   `last_name` VARCHAR(100) NOT NULL,
-  `email` VARCHAR(150) DEFAULT NULL,
+  `email` VARCHAR(150) NOT NULL,
   `phone` VARCHAR(20) DEFAULT NULL,
+  `password` VARCHAR(255) NOT NULL,
   `gender` ENUM('Male','Female','Other') DEFAULT 'Other',
   `bio` TEXT,
+  `specialization` VARCHAR(255) DEFAULT NULL,
+  `facebook` VARCHAR(255) DEFAULT NULL,
   `session_rate` DECIMAL(10,2) DEFAULT 0.00,
-  `status` ENUM('active','inactive') DEFAULT 'active',
+  `status` ENUM('pending','active','inactive') DEFAULT 'pending',
   `hire_date` DATE DEFAULT (CURDATE()),
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`instructor_id`)
+  PRIMARY KEY (`instructor_id`),
+  UNIQUE KEY `uq_instructors_email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================
--- 12. INSTRUCTOR BOOKINGS (Hire Requests)
+-- 12. INSTRUCTOR PLANS (Subscription Plans by Instructor)
+-- =============================================
+CREATE TABLE IF NOT EXISTS `instructor_plans` (
+  `plan_id` INT NOT NULL AUTO_INCREMENT,
+  `instructor_id` INT NOT NULL,
+  `plan_name` VARCHAR(150) NOT NULL,
+  `duration_days` INT UNSIGNED NOT NULL,
+  `price` DECIMAL(10,2) NOT NULL,
+  `description` TEXT,
+  `status` ENUM('active','inactive') DEFAULT 'active',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`plan_id`),
+  KEY `fk_iplan_instructor` (`instructor_id`),
+  CONSTRAINT `fk_iplan_instructor` FOREIGN KEY (`instructor_id`) REFERENCES `instructors` (`instructor_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================
+-- 13. INSTRUCTOR BOOKINGS (Subscription-based Hiring)
 -- =============================================
 CREATE TABLE IF NOT EXISTS `instructor_bookings` (
   `booking_id` INT NOT NULL AUTO_INCREMENT,
   `member_id` INT UNSIGNED NOT NULL,
   `instructor_id` INT NOT NULL,
-  `booking_date` DATE NOT NULL,
-  `session_time` VARCHAR(50) DEFAULT NULL,
+  `plan_id` INT NOT NULL,
+  `start_date` DATE NOT NULL,
+  `end_date` DATE NOT NULL,
+  `schedule_days` VARCHAR(100) NOT NULL,
+  `time_start` TIME NOT NULL,
+  `time_end` TIME NOT NULL,
   `notes` TEXT,
-  `status` ENUM('pending','approved','rejected') DEFAULT 'pending',
+  `status` ENUM('pending','approved','rejected','completed','cancelled') DEFAULT 'pending',
   `payment_method` ENUM('online','walkin') NOT NULL,
   `payment_status` ENUM('paid','pending') DEFAULT 'pending',
   `amount` DECIMAL(10,2) NOT NULL,
+  `admin_commission` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  `instructor_earning` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`booking_id`),
-  KEY `fk_booking_member` (`member_id`),
-  KEY `fk_booking_instructor` (`instructor_id`),
-  CONSTRAINT `fk_booking_member` FOREIGN KEY (`member_id`) REFERENCES `members` (`member_id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_booking_instructor` FOREIGN KEY (`instructor_id`) REFERENCES `instructors` (`instructor_id`) ON DELETE CASCADE
+  KEY `fk_sub_member` (`member_id`),
+  KEY `fk_sub_instructor` (`instructor_id`),
+  KEY `fk_sub_plan` (`plan_id`),
+  CONSTRAINT `fk_sub_member` FOREIGN KEY (`member_id`) REFERENCES `members` (`member_id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_sub_instructor` FOREIGN KEY (`instructor_id`) REFERENCES `instructors` (`instructor_id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_sub_plan` FOREIGN KEY (`plan_id`) REFERENCES `instructor_plans` (`plan_id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

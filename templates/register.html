@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body class="auth-page">
-    <div class="auth-card">
+    <div class="auth-card" style="max-width:480px;">
         <div class="auth-header">
             <div class="logo-icon"><i class="fas fa-dumbbell"></i></div>
             <h2>Create Account</h2>
@@ -21,14 +21,28 @@
             {% endfor %}
         {% endwith %}
 
+        <!-- Role Toggle -->
+        <div style="display:flex;gap:0;margin-bottom:24px;background:rgba(15,23,42,0.6);border-radius:12px;padding:4px;border:1px solid rgba(148,163,184,0.15);">
+            <button type="button" class="role-toggle active" id="roleMember" onclick="switchRole('member')" style="flex:1;padding:12px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.3s;font-family:'Inter',sans-serif;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;">
+                <i class="fas fa-user"></i> Member
+            </button>
+            <button type="button" class="role-toggle" id="roleInstructor" onclick="switchRole('instructor')" style="flex:1;padding:12px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.3s;font-family:'Inter',sans-serif;background:transparent;color:#64748b;">
+                <i class="fas fa-chalkboard-teacher"></i> Instructor
+            </button>
+        </div>
+
         <form method="POST" action="/register" id="registerForm">
-            <div class="form-group">
-                <label>First Name</label>
-                <input type="text" name="first_name" placeholder="First Name" value="{{ first_name or '' }}" required>
-            </div>
-            <div class="form-group">
-                <label>Last Name</label>
-                <input type="text" name="last_name" placeholder="Last Name" value="{{ last_name or '' }}" required>
+            <input type="hidden" name="role" id="roleInput" value="{{ role or 'member' }}">
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="form-group">
+                    <label>First Name</label>
+                    <input type="text" name="first_name" placeholder="First Name" value="{{ first_name or '' }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Last Name</label>
+                    <input type="text" name="last_name" placeholder="Last Name" value="{{ last_name or '' }}" required>
+                </div>
             </div>
             <div class="form-group">
                 <label>Gender</label>
@@ -48,6 +62,26 @@
                 <input type="tel" name="phone" id="phone" placeholder="09XXXXXXXXX" value="{{ phone or '' }}" maxlength="11" required>
                 <small style="color:#64748b;font-size:11px;margin-top:4px;display:block;">11-digit phone number</small>
             </div>
+
+            <!-- Instructor-only fields -->
+            <div id="instructorFields" style="display:none;">
+                <div class="form-group">
+                    <label>Specialization</label>
+                    <input type="text" name="specialization" placeholder="e.g. Weight Training, Yoga, CrossFit">
+                </div>
+                <div class="form-group">
+                    <label>Bio / About You</label>
+                    <textarea name="bio" placeholder="Tell members about your experience and expertise..." style="width:100%;height:80px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);border-radius:12px;color:#e2e8f0;padding:14px 16px;font-family:'Inter',sans-serif;resize:vertical;font-size:15px;outline:none;"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Facebook Profile (Optional)</label>
+                    <input type="text" name="facebook" placeholder="https://facebook.com/yourprofile">
+                </div>
+                <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:12px;padding:14px;margin-bottom:16px;">
+                    <p style="color:#fbbf24;font-size:13px;"><i class="fas fa-info-circle"></i> Instructor accounts require admin approval before you can log in.</p>
+                </div>
+            </div>
+
             <div class="form-group">
                 <label>Password</label>
                 <input type="password" name="password" id="password" placeholder="Min 6 characters" required minlength="6">
@@ -58,7 +92,7 @@
                 <input type="password" name="confirm_password" id="confirmPassword" placeholder="Confirm password" required>
                 <i class="fas fa-eye-slash password-toggle" id="toggleConfirm"></i>
             </div>
-            <button type="submit" class="btn-submit">
+            <button type="submit" class="btn-submit" id="submitBtn">
                 <i class="fas fa-user-plus"></i> Create Account
             </button>
         </form>
@@ -69,6 +103,33 @@
     </div>
 
     <script>
+        function switchRole(role) {
+            document.getElementById('roleInput').value = role;
+            const memberBtn = document.getElementById('roleMember');
+            const instrBtn = document.getElementById('roleInstructor');
+            const instrFields = document.getElementById('instructorFields');
+            const submitBtn = document.getElementById('submitBtn');
+
+            if (role === 'instructor') {
+                instrBtn.style.background = 'linear-gradient(135deg,#f97316,#ea580c)';
+                instrBtn.style.color = '#fff';
+                memberBtn.style.background = 'transparent';
+                memberBtn.style.color = '#64748b';
+                instrFields.style.display = 'block';
+                submitBtn.innerHTML = '<i class="fas fa-chalkboard-teacher"></i> Register as Instructor';
+            } else {
+                memberBtn.style.background = 'linear-gradient(135deg,#3b82f6,#2563eb)';
+                memberBtn.style.color = '#fff';
+                instrBtn.style.background = 'transparent';
+                instrBtn.style.color = '#64748b';
+                instrFields.style.display = 'none';
+                submitBtn.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
+            }
+        }
+
+        // Restore role on page reload
+        {% if role == 'instructor' %}switchRole('instructor');{% endif %}
+
         // Phone validation
         const phone = document.getElementById('phone');
         phone.addEventListener('input', function() {

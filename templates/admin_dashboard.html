@@ -841,26 +841,30 @@
         try {
             const res = await fetch('/api/admin/instructors');
             const instructors = await res.json();
-            if (!instructors.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-chalkboard-teacher"></i><h3>No instructors yet</h3><p>Add your first fitness instructor</p></div>'; return; }
-            let html = '<div class="table-wrap"><table id="instructorsTable"><tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Rate</th><th>Status</th><th>Hired</th><th>Actions</th></tr>';
+            if (!instructors.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-chalkboard-teacher"></i><h3>No instructors yet</h3><p>Instructors will appear here once they register</p></div>'; return; }
+            let html = '<div class="table-wrap"><table id="instructorsTable"><tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Specialization</th><th>Status</th><th>Registered</th><th>Actions</th></tr>';
             instructors.forEach(i => {
-                const badge = i.status === 'active' ? 'badge-active' : 'badge-inactive';
-                const toggleBtn = i.status === 'active'
-                    ? `<button class="btn btn-red btn-sm" onclick="toggleInstructorStatus(${i.instructor_id})" title="Deactivate"><i class="fas fa-ban"></i></button>`
-                    : `<button class="btn btn-green btn-sm" onclick="toggleInstructorStatus(${i.instructor_id})" title="Activate"><i class="fas fa-check"></i></button>`;
+                const badge = i.status === 'active' ? 'badge-active' : i.status === 'pending' ? 'badge-pending' : 'badge-inactive';
+                let actions = '';
+                if (i.status === 'pending') {
+                    actions = `<button class="btn btn-green btn-sm" onclick="toggleInstructorStatus(${i.instructor_id})" title="Approve"><i class="fas fa-check"></i> Approve</button>
+                               <button class="btn btn-red btn-sm" onclick="deleteInstructor(${i.instructor_id})"><i class="fas fa-trash"></i></button>`;
+                } else {
+                    const toggleBtn = i.status === 'active'
+                        ? `<button class="btn btn-red btn-sm" onclick="toggleInstructorStatus(${i.instructor_id})" title="Deactivate"><i class="fas fa-ban"></i></button>`
+                        : `<button class="btn btn-green btn-sm" onclick="toggleInstructorStatus(${i.instructor_id})" title="Activate"><i class="fas fa-check"></i></button>`;
+                    actions = `${toggleBtn}
+                               <button class="btn btn-red btn-sm" onclick="deleteInstructor(${i.instructor_id})"><i class="fas fa-trash"></i></button>`;
+                }
                 html += `<tr>
                     <td>${i.instructor_id}</td>
                     <td><strong>${i.first_name} ${i.last_name}</strong></td>
                     <td>${i.email || '--'}</td>
                     <td>${i.phone || '--'}</td>
-                    <td>${formatPeso(i.session_rate)}</td>
+                    <td>${i.specialization || '--'}</td>
                     <td><span class="badge ${badge}">${i.status}</span></td>
                     <td>${i.hire_date ? formatDate(i.hire_date) : '--'}</td>
-                    <td style="display:flex;gap:6px;">
-                        <button class="btn btn-yellow btn-sm" onclick='openEditInstructor(${JSON.stringify(i).replace(/'/g,"&#39;")})'><i class="fas fa-edit"></i></button>
-                        ${toggleBtn}
-                        <button class="btn btn-red btn-sm" onclick="deleteInstructor(${i.instructor_id})"><i class="fas fa-trash"></i></button>
-                    </td></tr>`;
+                    <td style="display:flex;gap:6px;">${actions}</td></tr>`;
             });
             html += '</table></div>';
             c.innerHTML = html;
@@ -944,23 +948,22 @@
         try {
             const res = await fetch('/api/admin/instructor-bookings');
             const bookings = await res.json();
-            if (!bookings.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-handshake"></i><h3>No hire requests</h3><p>Instructor hire requests will appear here</p></div>'; return; }
-            let html = '<div class="table-wrap"><table id="bookingsTable"><tr><th>Member</th><th>Instructor</th><th>Date</th><th>Time</th><th>Amount</th><th>Method</th><th>Payment</th><th>Status</th><th>Actions</th></tr>';
+            if (!bookings.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-handshake"></i><h3>No subscriptions</h3><p>Instructor subscription requests will appear here</p></div>'; return; }
+            let html = '<div class="table-wrap"><table id="bookingsTable"><tr><th>Member</th><th>Instructor</th><th>Plan</th><th>Schedule</th><th>Dates</th><th>Amount</th><th>Commission (30%)</th><th>Payment</th><th>Status</th><th>Actions</th></tr>';
             bookings.forEach(b => {
                 const statusBadge = b.status === 'pending' ? 'badge-pending' : b.status === 'approved' ? 'badge-approved' : 'badge-rejected';
                 const payBadge = b.payment_status === 'paid' ? 'badge-paid' : 'badge-pending';
                 const isPaid = b.payment_status === 'paid';
-                const methodLabel = b.payment_method === 'online' ? '<i class="fas fa-globe" style="color:#10b981;"></i> Online' : '<i class="fas fa-store" style="color:#fbbf24;"></i> Walk-in';
                 let actions = '';
                 if (b.status === 'pending') {
                     if (isPaid) {
                         actions = `
-                            <button class="btn btn-green btn-sm" onclick="approveBooking(${b.booking_id})" title="Approve"><i class="fas fa-check"></i> Approve</button>
+                            <button class="btn btn-green btn-sm" onclick="approveBooking(${b.booking_id})" title="Approve"><i class="fas fa-check"></i></button>
                             <button class="btn btn-red btn-sm" onclick="rejectBooking(${b.booking_id})" title="Reject"><i class="fas fa-times"></i></button>`;
                     } else {
                         actions = `
-                            <button class="btn btn-green btn-sm" disabled style="opacity:0.4;cursor:not-allowed;" title="Payment must be Paid first"><i class="fas fa-lock"></i> Approve</button>
-                            <button class="btn btn-blue btn-sm" onclick="markBookingPaid(${b.booking_id})" title="Mark as Paid"><i class="fas fa-money-bill-wave"></i> Mark Paid</button>
+                            <button class="btn btn-green btn-sm" disabled style="opacity:0.4;cursor:not-allowed;" title="Payment must be Paid first"><i class="fas fa-lock"></i></button>
+                            <button class="btn btn-blue btn-sm" onclick="markBookingPaid(${b.booking_id})" title="Mark as Paid"><i class="fas fa-money-bill-wave"></i></button>
                             <button class="btn btn-red btn-sm" onclick="rejectBooking(${b.booking_id})" title="Reject"><i class="fas fa-times"></i></button>`;
                     }
                 } else {
@@ -969,10 +972,11 @@
                 html += `<tr>
                     <td><strong>${b.member_name}</strong></td>
                     <td><strong>${b.instructor_name}</strong></td>
-                    <td>${formatDate(b.booking_date)}</td>
-                    <td>${b.session_time || '--'}</td>
+                    <td>${b.plan_name || '--'}</td>
+                    <td style="font-size:12px;">${b.schedule_days || '--'}<br>${b.time_start || ''} - ${b.time_end || ''}</td>
+                    <td style="font-size:12px;">${b.start_date ? formatDate(b.start_date) : '--'}<br>→ ${b.end_date ? formatDate(b.end_date) : '--'}</td>
                     <td>${formatPeso(b.amount)}</td>
-                    <td>${methodLabel}</td>
+                    <td style="color:#10b981;font-weight:700;">${formatPeso(b.admin_commission)}</td>
                     <td><span class="badge ${payBadge}">${b.payment_status}</span></td>
                     <td><span class="badge ${statusBadge}">${b.status}</span></td>
                     <td style="display:flex;gap:6px;flex-wrap:wrap;">${actions}</td></tr>`;
