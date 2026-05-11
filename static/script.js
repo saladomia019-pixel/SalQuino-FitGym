@@ -112,4 +112,14 @@ async function loadPublicPlans() {
 
 document.addEventListener('DOMContentLoaded', () => {
     loadPublicPlans();
+
+    // Auto-dismiss flash messages after 2 seconds
+    document.querySelectorAll('.flash-msg').forEach(msg => {
+        setTimeout(() => {
+            msg.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+            msg.style.opacity = '0';
+            msg.style.transform = 'translateY(-10px)';
+            setTimeout(() => msg.remove(), 500);
+        }, 3000);
+    });
 });

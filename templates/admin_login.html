@@ -50,6 +50,16 @@
             p.type = p.type === 'password' ? 'text' : 'password';
             this.classList.toggle('fa-eye-slash'); this.classList.toggle('fa-eye');
         });
+
+        // Auto-dismiss flash messages after 3 seconds
+        document.querySelectorAll('.flash-msg').forEach(msg => {
+            setTimeout(() => {
+                msg.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                msg.style.opacity = '0';
+                msg.style.transform = 'translateY(-10px)';
+                setTimeout(() => msg.remove(), 500);
+            }, 3000);
+        });
     </script>
 </body>
 </html>

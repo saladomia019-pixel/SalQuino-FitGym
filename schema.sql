@@ -241,3 +241,22 @@ CREATE TABLE IF NOT EXISTS `instructor_bookings` (
   CONSTRAINT `fk_sub_instructor` FOREIGN KEY (`instructor_id`) REFERENCES `instructors` (`instructor_id`) ON DELETE CASCADE,
   CONSTRAINT `fk_sub_plan` FOREIGN KEY (`plan_id`) REFERENCES `instructor_plans` (`plan_id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================
+-- 14. INSTRUCTOR TIME SLOTS (Availability set by Instructor)
+-- =============================================
+CREATE TABLE IF NOT EXISTS `instructor_time_slots` (
+  `slot_id` INT NOT NULL AUTO_INCREMENT,
+  `instructor_id` INT NOT NULL,
+  `day_of_week` VARCHAR(10) NOT NULL,
+  `time_start` TIME NOT NULL,
+  `time_end` TIME NOT NULL,
+  `is_booked` TINYINT(1) NOT NULL DEFAULT 0,
+  `booked_by` INT UNSIGNED DEFAULT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`slot_id`),
+  KEY `fk_slot_instructor` (`instructor_id`),
+  KEY `fk_slot_member` (`booked_by`),
+  CONSTRAINT `fk_slot_instructor` FOREIGN KEY (`instructor_id`) REFERENCES `instructors` (`instructor_id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_slot_member` FOREIGN KEY (`booked_by`) REFERENCES `members` (`member_id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

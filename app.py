@@ -1649,11 +1649,33 @@ def get_active_instructors():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/instructor/<int:instructor_id>/available-slots', methods=['GET'])
+@login_required
+@member_required
+def member_get_instructor_slots(instructor_id):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT slot_id, day_of_week, time_start, time_end, is_booked
+            FROM instructor_time_slots
+            WHERE instructor_id=%s
+            ORDER BY FIELD(day_of_week,'Mon','Tue','Wed','Thu','Fri','Sat','Sun'), time_start ASC
+        """, (instructor_id,))
+        slots = cursor.fetchall()
+        cursor.close(); conn.close()
+        for s in slots:
+            if s.get('time_start'): s['time_start'] = str(s['time_start'])
+            if s.get('time_end'): s['time_end'] = str(s['time_end'])
+        return jsonify(slots)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/hire-instructor', methods=['POST'])
 @member_required
 def hire_instructor():
     data = request.get_json()
-    required = ['instructor_id', 'plan_id', 'start_date', 'schedule_days', 'time_start', 'time_end', 'payment_method']
+    required = ['instructor_id', 'plan_id', 'start_date', 'slot_ids', 'payment_method']
     for field in required:
         if not data.get(field):
             return jsonify({"error": f"{field} is required"}), 400
@@ -1661,6 +1683,23 @@ def hire_instructor():
     payment_method = data['payment_method']
     if payment_method not in ('online', 'walkin'):
         return jsonify({"error": "Invalid payment method"}), 400
+
+    # Verify member has an active (admin-approved) membership
+    conn_check = get_connection()
+    if conn_check:
+        try:
+            chk_cursor = conn_check.cursor(dictionary=True)
+            chk_cursor.execute("SELECT COUNT(*) as cnt FROM memberships WHERE member_id=%s AND status='active' AND end_date >= CURDATE()", (session['user_id'],))
+            if chk_cursor.fetchone()['cnt'] == 0:
+                chk_cursor.close(); conn_check.close()
+                return jsonify({"error": "You must have an active membership before hiring an instructor. Please apply for a membership plan first."}), 403
+            chk_cursor.close(); conn_check.close()
+        except Exception:
+            if conn_check: conn_check.close()
+
+    slot_ids = data['slot_ids']
+    if not isinstance(slot_ids, list) or len(slot_ids) == 0:
+        return jsonify({"error": "Please select at least one time slot"}), 400
 
     try:
         start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
@@ -1692,6 +1731,30 @@ def hire_instructor():
             cursor.close(); conn.close()
             return jsonify({"error": "Plan not found"}), 404
 
+        # Validate all selected slots exist, belong to this instructor, and are not booked
+        placeholders = ','.join(['%s'] * len(slot_ids))
+        cursor.execute(f"""
+            SELECT slot_id, day_of_week, time_start, time_end, is_booked
+            FROM instructor_time_slots
+            WHERE slot_id IN ({placeholders}) AND instructor_id=%s
+        """, (*slot_ids, data['instructor_id']))
+        slots = cursor.fetchall()
+
+        if len(slots) != len(slot_ids):
+            cursor.close(); conn.close()
+            return jsonify({"error": "One or more selected time slots are invalid"}), 400
+
+        for slot in slots:
+            if slot['is_booked']:
+                cursor.close(); conn.close()
+                return jsonify({"error": f"Time slot {slot['day_of_week']} {slot['time_start']}-{slot['time_end']} is already booked. Please choose another."}), 400
+
+        # Build schedule info from slots
+        schedule_days = ','.join(sorted(set(s['day_of_week'] for s in slots), key=lambda d: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].index(d)))
+        # Build time display from first/last slot for the booking record
+        time_start_val = str(min(s['time_start'] for s in slots))
+        time_end_val = str(max(s['time_end'] for s in slots))
+
         amount = float(plan['price'])
         admin_commission = round(amount * 0.30, 2)
         instructor_earning = round(amount - admin_commission, 2)
@@ -1699,7 +1762,6 @@ def hire_instructor():
 
         from datetime import timedelta
         end_date = start_date + timedelta(days=int(plan['duration_days']))
-        schedule_days = data['schedule_days'] if isinstance(data['schedule_days'], str) else ','.join(data['schedule_days'])
 
         cursor.execute("""
             INSERT INTO instructor_bookings (member_id, instructor_id, plan_id, start_date, end_date,
@@ -1707,10 +1769,15 @@ def hire_instructor():
                 amount, admin_commission, instructor_earning)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s, %s, %s, %s, %s)
         """, (member_id, data['instructor_id'], data['plan_id'], start_date, end_date,
-              schedule_days, data['time_start'], data['time_end'], data.get('notes', ''),
+              schedule_days, time_start_val, time_end_val, data.get('notes', ''),
               payment_method, payment_status, amount, admin_commission, instructor_earning))
 
         booking_id = cursor.lastrowid
+
+        # Mark all selected slots as booked
+        for sid in slot_ids:
+            cursor.execute("UPDATE instructor_time_slots SET is_booked=1, booked_by=%s WHERE slot_id=%s",
+                           (member_id, sid))
 
         # Get member name
         cursor.execute("SELECT first_name, last_name FROM members WHERE member_id=%s", (member_id,))
@@ -1719,6 +1786,9 @@ def hire_instructor():
 
         import random, string
         ref_code = 'HI-' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+
+        # Build detailed slot info for receipt
+        slot_details = [f"{s['day_of_week']} {s['time_start']}-{s['time_end']}" for s in slots]
 
         return jsonify({
             "message": "Instructor subscription request submitted!",
@@ -1730,8 +1800,9 @@ def hire_instructor():
             "start_date": str(start_date),
             "end_date": str(end_date),
             "schedule_days": schedule_days,
-            "time_start": data['time_start'],
-            "time_end": data['time_end'],
+            "time_slots": slot_details,
+            "time_start": time_start_val,
+            "time_end": time_end_val,
             "amount": amount,
             "payment_method": payment_method,
             "payment_status": payment_status,
@@ -1916,6 +1987,87 @@ def instructor_toggle_plan(plan_id):
         cursor.execute("UPDATE instructor_plans SET status=%s WHERE plan_id=%s", (new_status, plan_id))
         conn.commit(); cursor.close(); conn.close()
         return jsonify({"message": f"Plan {new_status}"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ---- Instructor Time Slots CRUD ----
+@app.route('/api/instructor/time-slots', methods=['GET'])
+@login_required
+@instructor_required
+def instructor_get_time_slots():
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT ts.*, CONCAT(m.first_name,' ',m.last_name) as booked_by_name
+            FROM instructor_time_slots ts
+            LEFT JOIN members m ON ts.booked_by = m.member_id
+            WHERE ts.instructor_id=%s
+            ORDER BY FIELD(ts.day_of_week,'Mon','Tue','Wed','Thu','Fri','Sat','Sun'), ts.time_start ASC
+        """, (session['user_id'],))
+        slots = cursor.fetchall()
+        cursor.close(); conn.close()
+        for s in slots:
+            if s.get('time_start'): s['time_start'] = str(s['time_start'])
+            if s.get('time_end'): s['time_end'] = str(s['time_end'])
+            if s.get('created_at'): s['created_at'] = str(s['created_at'])
+        return jsonify(slots)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/instructor/time-slots', methods=['POST'])
+@login_required
+@instructor_required
+def instructor_create_time_slot():
+    try:
+        data = request.get_json()
+        day = data.get('day_of_week', '').strip()
+        time_start = data.get('time_start', '').strip()
+        time_end = data.get('time_end', '').strip()
+        if not day or not time_start or not time_end:
+            return jsonify({"error": "Day, time start, and time end are required"}), 400
+        if day not in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']:
+            return jsonify({"error": "Invalid day of week"}), 400
+        if time_start >= time_end:
+            return jsonify({"error": "Time end must be after time start"}), 400
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        # Check for overlapping slots on the same day
+        cursor.execute("""
+            SELECT slot_id FROM instructor_time_slots
+            WHERE instructor_id=%s AND day_of_week=%s
+            AND ((time_start < %s AND time_end > %s) OR (time_start < %s AND time_end > %s) OR (time_start >= %s AND time_end <= %s))
+        """, (session['user_id'], day, time_end, time_start, time_end, time_start, time_start, time_end))
+        if cursor.fetchone():
+            cursor.close(); conn.close()
+            return jsonify({"error": "This time slot overlaps with an existing slot on the same day"}), 400
+        cursor.execute("""
+            INSERT INTO instructor_time_slots (instructor_id, day_of_week, time_start, time_end, is_booked)
+            VALUES (%s, %s, %s, %s, 0)
+        """, (session['user_id'], day, time_start, time_end))
+        conn.commit(); cursor.close(); conn.close()
+        return jsonify({"message": "Time slot added successfully"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/instructor/time-slots/<int:slot_id>', methods=['DELETE'])
+@login_required
+@instructor_required
+def instructor_delete_time_slot(slot_id):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM instructor_time_slots WHERE slot_id=%s AND instructor_id=%s", (slot_id, session['user_id']))
+        slot = cursor.fetchone()
+        if not slot:
+            cursor.close(); conn.close()
+            return jsonify({"error": "Slot not found"}), 404
+        if slot['is_booked']:
+            cursor.close(); conn.close()
+            return jsonify({"error": "Cannot delete a booked slot"}), 400
+        cursor.execute("DELETE FROM instructor_time_slots WHERE slot_id=%s AND instructor_id=%s", (slot_id, session['user_id']))
+        conn.commit(); cursor.close(); conn.close()
+        return jsonify({"message": "Time slot deleted"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

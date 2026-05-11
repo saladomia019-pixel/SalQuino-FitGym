@@ -26,6 +26,7 @@
             <a href="#" onclick="showSection('overview')" class="active"><i class="fas fa-home"></i> Dashboard</a>
             <a href="#" onclick="showSection('clients')"><i class="fas fa-users"></i> My Clients</a>
             <a href="#" onclick="showSection('plans')"><i class="fas fa-clipboard-list"></i> My Plans</a>
+            <a href="#" onclick="showSection('schedule')"><i class="fas fa-clock"></i> My Schedule</a>
             <a href="#" onclick="showSection('profile')"><i class="fas fa-user"></i> My Profile</a>
         </nav>
         <div class="sidebar-footer">
@@ -85,6 +86,17 @@
             </div>
         </div>
 
+        <!-- SCHEDULE (Time Slots) -->
+        <div id="scheduleSection" class="content-section">
+            <div class="section-card">
+                <h2 style="justify-content:space-between;"><span><i class="fas fa-clock"></i> My Available Time Slots</span>
+                    <button class="btn btn-green btn-sm" onclick="openAddSlotModal()"><i class="fas fa-plus"></i> Add Time Slot</button>
+                </h2>
+                <p style="color:#94a3b8;margin-bottom:20px;font-size:14px;">Set your available time slots. Members will pick from these when booking you. Once a slot is booked, no other member can select it.</p>
+                <div id="timeSlotsContent"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><h3>Loading...</h3></div></div>
+            </div>
+        </div>
+
         <!-- PROFILE -->
         <div id="profileSection" class="content-section">
             <div class="section-card">
@@ -118,6 +130,35 @@
             <p style="color:#94a3b8;font-size:12px;"><i class="fas fa-info-circle" style="color:#3b82f6;"></i> 30% of the plan price goes to the gym as commission. You earn the remaining 70%.</p>
         </div>
         <button class="btn btn-blue btn-lg" style="width:100%;" onclick="savePlan()"><i class="fas fa-save"></i> Save Plan</button>
+    </div>
+</div>
+
+<!-- ADD TIME SLOT MODAL -->
+<div class="modal-overlay" id="slotModal">
+    <div class="modal">
+        <button class="close-btn" onclick="closeModal('slotModal')">&times;</button>
+        <h3><i class="fas fa-clock" style="color:#10b981;"></i> Add Available Time Slot</h3>
+        <p style="color:#94a3b8;margin-bottom:20px;font-size:14px;">Set a time range when you are available. Members will pick from your available slots.</p>
+        <div class="form-group"><label>Day of Week</label>
+            <select id="slotDay" style="width:100%;padding:12px 16px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);border-radius:10px;color:#e2e8f0;font-size:14px;outline:none;font-family:'Inter',sans-serif;">
+                <option value="Mon">Monday</option>
+                <option value="Tue">Tuesday</option>
+                <option value="Wed">Wednesday</option>
+                <option value="Thu">Thursday</option>
+                <option value="Fri">Friday</option>
+                <option value="Sat">Saturday</option>
+                <option value="Sun">Sunday</option>
+            </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group"><label>Time Start</label>
+                <input type="time" id="slotTimeStart" style="width:100%;padding:12px 16px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);border-radius:10px;color:#e2e8f0;font-size:14px;outline:none;font-family:'Inter',sans-serif;">
+            </div>
+            <div class="form-group"><label>Time End</label>
+                <input type="time" id="slotTimeEnd" style="width:100%;padding:12px 16px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);border-radius:10px;color:#e2e8f0;font-size:14px;outline:none;font-family:'Inter',sans-serif;">
+            </div>
+        </div>
+        <button class="btn btn-green btn-lg" style="width:100%;margin-top:8px;" onclick="saveTimeSlot()"><i class="fas fa-plus"></i> Add Time Slot</button>
     </div>
 </div>
 
@@ -325,14 +366,97 @@
         } catch(e){showToast('Failed','error');}
     }
 
+    // TIME SLOTS (Schedule)
+    async function loadTimeSlots() {
+        const c = document.getElementById('timeSlotsContent');
+        try {
+            const res = await fetch('/api/instructor/time-slots');
+            const slots = await res.json();
+            if (!slots.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-clock"></i><h3>No time slots set</h3><p>Add your available time slots so members can book you</p></div>'; return; }
+            // Group by day
+            const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+            const dayNames = {Mon:'Monday',Tue:'Tuesday',Wed:'Wednesday',Thu:'Thursday',Fri:'Friday',Sat:'Saturday',Sun:'Sunday'};
+            let html = '';
+            days.forEach(day => {
+                const daySlots = slots.filter(s => s.day_of_week === day);
+                if (!daySlots.length) return;
+                html += `<div style="margin-bottom:20px;">`;
+                html += `<h4 style="color:#e2e8f0;font-size:15px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid rgba(148,163,184,0.1);"><i class="fas fa-calendar-day" style="color:#3b82f6;margin-right:8px;"></i>${dayNames[day]}</h4>`;
+                html += `<div style="display:flex;flex-wrap:wrap;gap:10px;">`;
+                daySlots.forEach(s => {
+                    const booked = s.is_booked;
+                    const bgColor = booked ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)';
+                    const borderColor = booked ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)';
+                    const textColor = booked ? '#fca5a5' : '#6ee7b7';
+                    const statusIcon = booked ? '<i class="fas fa-lock" style="color:#ef4444;"></i>' : '<i class="fas fa-check-circle" style="color:#10b981;"></i>';
+                    const statusText = booked ? `Booked by ${s.booked_by_name || 'Member'}` : 'Available';
+                    const deleteBtn = booked ? '' : `<button onclick="deleteTimeSlot(${s.slot_id})" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#fca5a5;padding:4px 10px;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.3s;" onmouseover="this.style.background='rgba(239,68,68,0.3)'" onmouseout="this.style.background='rgba(239,68,68,0.15)'"><i class="fas fa-trash"></i></button>`;
+                    html += `<div style="background:${bgColor};border:1px solid ${borderColor};border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:12px;min-width:260px;">`;
+                    html += `<div style="flex:1;">`;
+                    html += `<div style="color:#fff;font-weight:700;font-size:15px;">${formatTime12(s.time_start)} — ${formatTime12(s.time_end)}</div>`;
+                    html += `<div style="color:${textColor};font-size:12px;font-weight:600;margin-top:4px;">${statusIcon} ${statusText}</div>`;
+                    html += `</div>`;
+                    html += deleteBtn;
+                    html += `</div>`;
+                });
+                html += `</div></div>`;
+            });
+            c.innerHTML = html;
+        } catch(e) { c.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error loading slots</h3></div>'; }
+    }
+
+    function formatTime12(timeStr) {
+        if (!timeStr) return '--';
+        const parts = timeStr.split(':');
+        let h = parseInt(parts[0]), m = parts[1];
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        return h + ':' + m + ' ' + ampm;
+    }
+
+    function openAddSlotModal() {
+        document.getElementById('slotDay').value = 'Mon';
+        document.getElementById('slotTimeStart').value = '';
+        document.getElementById('slotTimeEnd').value = '';
+        openModal('slotModal');
+    }
+
+    async function saveTimeSlot() {
+        const day = document.getElementById('slotDay').value;
+        const timeStart = document.getElementById('slotTimeStart').value;
+        const timeEnd = document.getElementById('slotTimeEnd').value;
+        if (!day || !timeStart || !timeEnd) { showToast('Please fill all fields', 'error'); return; }
+        if (timeStart >= timeEnd) { showToast('End time must be after start time', 'error'); return; }
+        try {
+            const res = await fetch('/api/instructor/time-slots', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ day_of_week: day, time_start: timeStart, time_end: timeEnd })
+            });
+            const data = await res.json();
+            if (res.ok) { showToast(data.message); closeModal('slotModal'); loadTimeSlots(); }
+            else showToast(data.error, 'error');
+        } catch(e) { showToast('Failed to add slot', 'error'); }
+    }
+
+    async function deleteTimeSlot(id) {
+        if (!confirm('Delete this time slot?')) return;
+        try {
+            const r = await fetch(`/api/instructor/time-slots/${id}`, { method: 'DELETE' });
+            const d = await r.json();
+            if (r.ok) { showToast(d.message); loadTimeSlots(); }
+            else showToast(d.error, 'error');
+        } catch(e) { showToast('Failed', 'error'); }
+    }
+
     // SECTION SWITCHING
     const origShowSection = showSection;
     showSection = function(name) {
         origShowSection(name);
-        document.getElementById('pageTitle').textContent = {overview:'Dashboard',clients:'My Clients',plans:'My Plans',profile:'My Profile'}[name]||name;
+        document.getElementById('pageTitle').textContent = {overview:'Dashboard',clients:'My Clients',plans:'My Plans',schedule:'My Schedule',profile:'My Profile'}[name]||name;
         if(name==='overview'){loadStats();loadCharts();}
         else if(name==='clients')loadClients();
         else if(name==='plans')loadPlans();
+        else if(name==='schedule')loadTimeSlots();
         else if(name==='profile')loadProfile();
     };
 

@@ -30,7 +30,7 @@
             <a href="#" onclick="showSection('membership')"><i class="fas fa-id-card"></i> My Membership</a>
             <a href="#" onclick="showSection('checkins')"><i class="fas fa-calendar-check"></i> Check-ins</a>
             <a href="#" onclick="showSection('health')"><i class="fas fa-heartbeat"></i> Health Tracker</a>
-            <a href="#" onclick="showSection('instructors')"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
+            <a href="#" onclick="showSection('instructors')"><i class="fas fa-chalkboard-teacher"></i> Instructors <span id="instructorLockBadge" style="display:none;margin-left:auto;"><i class="fas fa-lock" style="font-size:11px;color:#ef4444;opacity:0.7;"></i></span></a>
             <a href="#" onclick="showSection('profile')"><i class="fas fa-user"></i> My Profile</a>
         </nav>
         <div class="sidebar-footer">
@@ -124,15 +124,38 @@
 
         <!-- ==================== INSTRUCTORS ==================== -->
         <div id="instructorsSection" class="content-section">
-            <!-- My Hired Instructors -->
-            <div id="myBookingsArea"></div>
+            <!-- Locked Overlay (shown when no active membership) -->
+            <div id="instructorsLockedOverlay" style="display:none;">
+                <div style="text-align:center;padding:60px 20px;">
+                    <div style="width:100px;height:100px;background:linear-gradient(135deg,rgba(239,68,68,0.15),rgba(249,115,22,0.15));border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;border:2px solid rgba(239,68,68,0.25);">
+                        <i class="fas fa-lock" style="font-size:42px;color:#ef4444;"></i>
+                    </div>
+                    <h2 style="color:#fff;font-size:24px;margin-bottom:12px;font-weight:800;">Instructor Access Locked</h2>
+                    <p style="color:#94a3b8;font-size:15px;max-width:460px;margin:0 auto 8px;line-height:1.6;">You need an <strong style="color:#f59e0b;">active membership</strong> approved by the admin before you can browse and hire fitness instructors.</p>
+                    <p style="color:#64748b;font-size:13px;max-width:400px;margin:0 auto 28px;">Apply for a membership plan first, then wait for admin approval. Once approved, this section will unlock automatically.</p>
+                    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+                        <button class="btn btn-blue btn-lg" onclick="showSection('membership')" style="padding:14px 32px;">
+                            <i class="fas fa-id-card"></i> Go to Membership
+                        </button>
+                        <button class="btn btn-lg" onclick="openApplyModal()" style="padding:14px 32px;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;border:none;border-radius:12px;font-weight:700;cursor:pointer;">
+                            <i class="fas fa-paper-plane"></i> Apply Now
+                        </button>
+                    </div>
+                </div>
+            </div>
 
-            <!-- Browse Instructors -->
-            <div class="section-card">
-                <h2><i class="fas fa-chalkboard-teacher"></i> Fitness Instructors</h2>
-                <p style="color:#94a3b8;margin-bottom:20px;font-size:14px;">Browse available fitness instructors and subscribe to a training plan</p>
-                <div id="instructorsList" class="instructor-grid">
-                    <div class="empty-state"><i class="fas fa-spinner fa-spin"></i><h3>Loading...</h3></div>
+            <!-- Unlocked Content (shown when membership is active) -->
+            <div id="instructorsUnlockedContent" style="display:none;">
+                <!-- My Hired Instructors -->
+                <div id="myBookingsArea"></div>
+
+                <!-- Browse Instructors -->
+                <div class="section-card">
+                    <h2><i class="fas fa-chalkboard-teacher"></i> Fitness Instructors</h2>
+                    <p style="color:#94a3b8;margin-bottom:20px;font-size:14px;">Browse available fitness instructors and subscribe to a training plan</p>
+                    <div id="instructorsList" class="instructor-grid">
+                        <div class="empty-state"><i class="fas fa-spinner fa-spin"></i><h3>Loading...</h3></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -379,30 +402,18 @@
             <div id="hirePlanOptions" class="plan-options"></div>
         </div>
 
-        <!-- Step 2: Schedule -->
+        <!-- Step 2: Schedule (Time Slot Picker) -->
         <div id="hireStep2" style="display:none;">
             <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.15);border-radius:14px;padding:20px;margin-bottom:16px;">
                 <h4 style="color:#fff;margin-bottom:16px;font-size:15px;"><i class="fas fa-calendar-alt" style="color:#f97316;"></i> Set Your Schedule</h4>
                 <div class="form-group"><label>Start Date</label>
                     <input type="date" id="hireStartDate" style="width:100%;padding:12px 16px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);border-radius:10px;color:#e2e8f0;font-size:14px;outline:none;font-family:'Inter',sans-serif;">
                 </div>
-                <div class="form-group"><label>Workout Days</label>
-                    <div id="dayPicker" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
-                        <label style="display:flex;align-items:center;gap:6px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.15);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:13px;color:#94a3b8;transition:all 0.3s;"><input type="checkbox" name="schedule_day" value="Mon" style="accent-color:#f97316;"> Mon</label>
-                        <label style="display:flex;align-items:center;gap:6px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.15);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:13px;color:#94a3b8;transition:all 0.3s;"><input type="checkbox" name="schedule_day" value="Tue" style="accent-color:#f97316;"> Tue</label>
-                        <label style="display:flex;align-items:center;gap:6px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.15);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:13px;color:#94a3b8;transition:all 0.3s;"><input type="checkbox" name="schedule_day" value="Wed" style="accent-color:#f97316;"> Wed</label>
-                        <label style="display:flex;align-items:center;gap:6px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.15);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:13px;color:#94a3b8;transition:all 0.3s;"><input type="checkbox" name="schedule_day" value="Thu" style="accent-color:#f97316;"> Thu</label>
-                        <label style="display:flex;align-items:center;gap:6px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.15);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:13px;color:#94a3b8;transition:all 0.3s;"><input type="checkbox" name="schedule_day" value="Fri" style="accent-color:#f97316;"> Fri</label>
-                        <label style="display:flex;align-items:center;gap:6px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.15);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:13px;color:#94a3b8;transition:all 0.3s;"><input type="checkbox" name="schedule_day" value="Sat" style="accent-color:#f97316;"> Sat</label>
-                        <label style="display:flex;align-items:center;gap:6px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.15);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:13px;color:#94a3b8;transition:all 0.3s;"><input type="checkbox" name="schedule_day" value="Sun" style="accent-color:#f97316;"> Sun</label>
-                    </div>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                    <div class="form-group"><label>Time Start</label>
-                        <input type="time" id="hireTimeStart" style="width:100%;padding:12px 16px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);border-radius:10px;color:#e2e8f0;font-size:14px;outline:none;font-family:'Inter',sans-serif;">
-                    </div>
-                    <div class="form-group"><label>Time End</label>
-                        <input type="time" id="hireTimeEnd" style="width:100%;padding:12px 16px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);border-radius:10px;color:#e2e8f0;font-size:14px;outline:none;font-family:'Inter',sans-serif;">
+                <div class="form-group">
+                    <label style="margin-bottom:8px;display:block;">Choose Available Time Slots</label>
+                    <p style="color:#64748b;font-size:12px;margin-bottom:12px;"><i class="fas fa-info-circle" style="color:#3b82f6;"></i> Click on available time slots to select them. Red slots are already booked by another member.</p>
+                    <div id="hireTimeSlots" style="min-height:60px;">
+                        <div class="empty-state" style="padding:20px;"><i class="fas fa-spinner fa-spin"></i><p style="font-size:13px;">Loading available slots...</p></div>
                     </div>
                 </div>
             </div>
@@ -548,6 +559,10 @@
 
             const ctaArea = document.getElementById('overviewCTA');
             const checkinArea = document.getElementById('checkinArea');
+            const lockBadge = document.getElementById('instructorLockBadge');
+
+            // Toggle instructor lock badge in sidebar
+            if (lockBadge) lockBadge.style.display = memData.has_active ? 'none' : 'inline';
 
             if (memData.has_active) {
                 const m = memData.membership;
@@ -1517,6 +1532,31 @@
     }
 
     async function loadMemberInstructors() {
+        const lockedOverlay = document.getElementById('instructorsLockedOverlay');
+        const unlockedContent = document.getElementById('instructorsUnlockedContent');
+
+        // Check membership status first
+        try {
+            const memRes = await fetch('/api/my-membership');
+            const memData = await memRes.json();
+
+            if (!memData.has_active) {
+                // No active membership — show locked state
+                lockedOverlay.style.display = 'block';
+                unlockedContent.style.display = 'none';
+                return;
+            }
+        } catch(e) {
+            console.error('Membership check error:', e);
+            lockedOverlay.style.display = 'block';
+            unlockedContent.style.display = 'none';
+            return;
+        }
+
+        // Active membership exists — show instructor content
+        lockedOverlay.style.display = 'none';
+        unlockedContent.style.display = 'block';
+
         loadMyBookings();
         const c = document.getElementById('instructorsList');
         try {
@@ -1569,8 +1609,12 @@
         } catch(e) { planContainer.innerHTML = '<div class="empty-state"><p>Error loading plans</p></div>'; }
     }
 
+    let selectedSlotIds = [];
+    let hireAvailableSlots = [];
+
     function selectHirePlan(plan, el) {
         hirePlanData = plan;
+        selectedSlotIds = [];
         document.querySelectorAll('#hirePlanOptions .plan-option').forEach(o => o.classList.remove('selected'));
         el.classList.add('selected');
         // Move to step 2
@@ -1579,17 +1623,101 @@
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('hireStartDate').min = today;
         document.getElementById('hireStartDate').value = today;
+        // Load time slots for this instructor
+        loadHireTimeSlots();
+    }
+
+    async function loadHireTimeSlots() {
+        const container = document.getElementById('hireTimeSlots');
+        container.innerHTML = '<div class="empty-state" style="padding:20px;"><i class="fas fa-spinner fa-spin"></i><p style="font-size:13px;">Loading available slots...</p></div>';
+        try {
+            const res = await fetch(`/api/instructor/${hireInstructor_data.instructor_id}/available-slots`);
+            hireAvailableSlots = await res.json();
+            if (!hireAvailableSlots.length) {
+                container.innerHTML = '<div style="text-align:center;padding:20px;color:#f59e0b;"><i class="fas fa-exclamation-triangle" style="font-size:24px;margin-bottom:8px;display:block;"></i>This instructor has not set any available time slots yet.</div>';
+                return;
+            }
+            renderHireSlotButtons();
+        } catch(e) {
+            container.innerHTML = '<div style="text-align:center;padding:20px;color:#ef4444;"><i class="fas fa-exclamation-triangle"></i> Error loading time slots</div>';
+        }
+    }
+
+    function hireFormatTime12(timeStr) {
+        if (!timeStr) return '--';
+        const parts = timeStr.split(':');
+        let h = parseInt(parts[0]), m = parts[1];
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        return h + ':' + m + ' ' + ampm;
+    }
+
+    function renderHireSlotButtons() {
+        const container = document.getElementById('hireTimeSlots');
+        const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+        const dayNames = {Mon:'Monday',Tue:'Tuesday',Wed:'Wednesday',Thu:'Thursday',Fri:'Friday',Sat:'Saturday',Sun:'Sunday'};
+        let html = '';
+        days.forEach(day => {
+            const daySlots = hireAvailableSlots.filter(s => s.day_of_week === day);
+            if (!daySlots.length) return;
+            html += `<div style="margin-bottom:16px;">`;
+            html += `<div style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;margin-bottom:8px;letter-spacing:1px;"><i class="fas fa-calendar-day" style="color:#f97316;margin-right:6px;"></i>${dayNames[day]}</div>`;
+            html += `<div style="display:flex;flex-wrap:wrap;gap:8px;">`;
+            daySlots.forEach(s => {
+                const booked = s.is_booked;
+                const selected = selectedSlotIds.includes(s.slot_id);
+                if (booked) {
+                    html += `<button class="time-slot-btn booked" disabled title="Unavailable - Already booked by another member" style="
+                        padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:not-allowed;
+                        background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;
+                        font-family:'Inter',sans-serif;position:relative;transition:all 0.3s;opacity:0.7;
+                    "><i class="fas fa-lock" style="margin-right:4px;font-size:11px;"></i>${hireFormatTime12(s.time_start)} - ${hireFormatTime12(s.time_end)}</button>`;
+                } else {
+                    const bg = selected ? 'rgba(249,115,22,0.25)' : 'rgba(16,185,129,0.12)';
+                    const border = selected ? 'rgba(249,115,22,0.6)' : 'rgba(16,185,129,0.3)';
+                    const color = selected ? '#fb923c' : '#6ee7b7';
+                    const icon = selected ? '<i class="fas fa-check-circle" style="margin-right:4px;font-size:11px;"></i>' : '<i class="fas fa-clock" style="margin-right:4px;font-size:11px;"></i>';
+                    html += `<button onclick="toggleSlotSelection(${s.slot_id})" class="time-slot-btn available" style="
+                        padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;
+                        background:${bg};border:1px solid ${border};color:${color};
+                        font-family:'Inter',sans-serif;transition:all 0.3s;
+                    " onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 4px 15px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">${icon}${hireFormatTime12(s.time_start)} - ${hireFormatTime12(s.time_end)}</button>`;
+                }
+            });
+            html += `</div></div>`;
+        });
+        // Selection summary
+        if (selectedSlotIds.length > 0) {
+            const selectedSlots = hireAvailableSlots.filter(s => selectedSlotIds.includes(s.slot_id));
+            html += `<div style="margin-top:12px;padding:12px 16px;background:rgba(249,115,22,0.08);border:1px solid rgba(249,115,22,0.2);border-radius:10px;">`;
+            html += `<div style="color:#fb923c;font-size:12px;font-weight:700;margin-bottom:6px;"><i class="fas fa-check-double"></i> ${selectedSlotIds.length} slot(s) selected</div>`;
+            selectedSlots.forEach(s => {
+                html += `<div style="color:#e2e8f0;font-size:13px;padding:2px 0;"><i class="fas fa-chevron-right" style="color:#f97316;font-size:10px;margin-right:6px;"></i>${s.day_of_week}: ${hireFormatTime12(s.time_start)} - ${hireFormatTime12(s.time_end)}</div>`;
+            });
+            html += `</div>`;
+        }
+        container.innerHTML = html;
+    }
+
+    function toggleSlotSelection(slotId) {
+        const idx = selectedSlotIds.indexOf(slotId);
+        if (idx > -1) {
+            selectedSlotIds.splice(idx, 1);
+        } else {
+            selectedSlotIds.push(slotId);
+        }
+        renderHireSlotButtons();
     }
 
     function showHirePayment() {
         const startDate = document.getElementById('hireStartDate').value;
-        const days = Array.from(document.querySelectorAll('input[name="schedule_day"]:checked')).map(c => c.value);
-        const timeStart = document.getElementById('hireTimeStart').value;
-        const timeEnd = document.getElementById('hireTimeEnd').value;
 
         if (!startDate) { showToast('Please select a start date', 'error'); return; }
-        if (!days.length) { showToast('Please select at least one workout day', 'error'); return; }
-        if (!timeStart || !timeEnd) { showToast('Please set time start and end', 'error'); return; }
+        if (!selectedSlotIds.length) { showToast('Please select at least one time slot', 'error'); return; }
+
+        // Build slot summary for display
+        const selectedSlots = hireAvailableSlots.filter(s => selectedSlotIds.includes(s.slot_id));
+        const slotSummary = selectedSlots.map(s => `${s.day_of_week} ${hireFormatTime12(s.time_start)}-${hireFormatTime12(s.time_end)}`).join(', ');
 
         closeModal('hireModal');
         hirePaymentMethod = null;
@@ -1600,8 +1728,7 @@
                 <div class="ps-row"><span>Instructor</span><strong>${hireInstructor_data.first_name} ${hireInstructor_data.last_name}</strong></div>
                 <div class="ps-row"><span>Plan</span><strong>${hirePlanData.plan_name}</strong></div>
                 <div class="ps-row"><span>Duration</span><strong>${hirePlanData.duration_days} days</strong></div>
-                <div class="ps-row"><span>Schedule</span><strong>${days.join(', ')}</strong></div>
-                <div class="ps-row"><span>Time</span><strong>${timeStart} - ${timeEnd}</strong></div>
+                <div class="ps-row"><span>Time Slots</span><strong style="font-size:12px;">${slotSummary}</strong></div>
                 <div class="ps-row total"><span>Amount</span><strong>${formatPeso(hirePlanData.price)}</strong></div>
             </div>`;
         openModal('hirePaymentModal');
@@ -1650,14 +1777,11 @@
     }
 
     async function submitHireRequest(paymentMethod) {
-        const days = Array.from(document.querySelectorAll('input[name="schedule_day"]:checked')).map(c => c.value);
         const payload = {
             instructor_id: hireInstructor_data.instructor_id,
             plan_id: hirePlanData.plan_id,
             start_date: document.getElementById('hireStartDate').value,
-            schedule_days: days.join(','),
-            time_start: document.getElementById('hireTimeStart').value,
-            time_end: document.getElementById('hireTimeEnd').value,
+            slot_ids: selectedSlotIds,
             notes: document.getElementById('hireNotes').value.trim(),
             payment_method: paymentMethod
         };
@@ -1682,7 +1806,7 @@
             <div class="receipt-row"><span>Plan</span><strong>${data.plan_name}</strong></div>
             <div class="receipt-row"><span>Period</span><strong>${formatDate(data.start_date)} → ${formatDate(data.end_date)}</strong></div>
             <div class="receipt-row"><span>Schedule</span><strong>${data.schedule_days}</strong></div>
-            <div class="receipt-row"><span>Time</span><strong>${data.time_start} - ${data.time_end}</strong></div>
+            <div class="receipt-row"><span>Time Slots</span><strong style="font-size:12px;">${(data.time_slots||[]).join('<br>')}</strong></div>
             <div class="receipt-divider"></div>
             <div class="receipt-row total"><span>Amount Paid</span><strong>${formatPeso(data.amount)}</strong></div>
             <div class="receipt-row"><span>Payment Method</span><strong>Online</strong></div>
@@ -1708,7 +1832,7 @@
             <div class="ticket-row"><span>Plan</span><strong>${data.plan_name}</strong></div>
             <div class="ticket-row"><span>Period</span><strong>${formatDate(data.start_date)} → ${formatDate(data.end_date)}</strong></div>
             <div class="ticket-row"><span>Schedule</span><strong>${data.schedule_days}</strong></div>
-            <div class="ticket-row"><span>Time</span><strong>${data.time_start} - ${data.time_end}</strong></div>
+            <div class="ticket-row"><span>Time Slots</span><strong style="font-size:12px;">${(data.time_slots||[]).join('<br>')}</strong></div>
             <div class="ticket-row total"><span>Amount Due</span><strong>${formatPeso(data.amount)}</strong></div>
             <div class="ticket-row"><span>Payment Method</span><strong>Walk-in</strong></div>
             <div class="ticket-row"><span>Status</span><strong style="color:#fbbf24;">Pending Payment</strong></div>
