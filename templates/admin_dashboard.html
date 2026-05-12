@@ -33,6 +33,7 @@
             <a href="#" onclick="showSection('announcements')"><i class="fas fa-bullhorn"></i> Announcements</a>
             <a href="#" onclick="showSection('instructors')"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
             <a href="#" onclick="showSection('instructorBookings')"><i class="fas fa-handshake"></i> Instructor Bookings</a>
+            <a href="#" onclick="showSection('dailyCheckins')"><i class="fas fa-calendar-check"></i> Daily Check-ins</a>
             <a href="#" onclick="showSection('logs')"><i class="fas fa-history"></i> Activity Log</a>
         </nav>
         <div class="sidebar-footer">
@@ -75,6 +76,7 @@
                     <button class="btn btn-yellow" onclick="showSection('announcements')"><i class="fas fa-bullhorn"></i> Announcements</button>
                     <button class="btn btn-blue" onclick="showSection('instructors')" style="background:linear-gradient(135deg,#f97316,#ea580c);"><i class="fas fa-chalkboard-teacher"></i> Instructors</button>
                     <button class="btn btn-green" onclick="showSection('instructorBookings')"><i class="fas fa-handshake"></i> Instructor Bookings</button>
+                    <button class="btn btn-blue" onclick="showSection('dailyCheckins')" style="background:linear-gradient(135deg,#06b6d4,#0891b2);"><i class="fas fa-calendar-check"></i> Daily Check-ins</button>
                     <button class="btn btn-blue" onclick="showSection('logs')"><i class="fas fa-history"></i> Activity Log</button>
                 </div>
             </div>
@@ -173,6 +175,24 @@
                     <button class="btn btn-blue btn-sm" onclick="exportTableToCSV('bookingsTable', 'instructor_bookings_export.csv')"><i class="fas fa-download"></i> Export CSV</button>
                 </h2>
                 <div id="instructorBookingsContent"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><h3>Loading...</h3></div></div>
+            </div>
+        </div>
+
+        <!-- ========== DAILY CHECK-INS ========== -->
+        <div id="dailyCheckinsSection" class="content-section">
+            <div class="section-card">
+                <h2 style="justify-content:space-between;"><span><i class="fas fa-calendar-check"></i> Daily Check-ins</span>
+                    <button class="btn btn-blue btn-sm" onclick="exportTableToCSV('dailyCheckinsTable', 'daily_checkins_export.csv')"><i class="fas fa-download"></i> Export CSV</button>
+                </h2>
+                <div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <label style="color:#94a3b8;font-size:14px;font-weight:600;white-space:nowrap;"><i class="fas fa-calendar-alt" style="color:#06b6d4;"></i> Select Date:</label>
+                        <input type="date" id="checkinDatePicker" onchange="loadDailyCheckins()" style="padding:10px 16px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);border-radius:10px;color:#e2e8f0;font-family:'Inter',sans-serif;font-size:14px;outline:none;">
+                    </div>
+                    <button class="btn btn-sm" onclick="setCheckinDateToday()" style="background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;"><i class="fas fa-clock"></i> Today</button>
+                    <div id="checkinCountBadge" style="margin-left:auto;background:rgba(6,182,212,0.12);border:1px solid rgba(6,182,212,0.25);border-radius:10px;padding:8px 16px;color:#22d3ee;font-weight:700;font-size:14px;"></div>
+                </div>
+                <div id="dailyCheckinsContent"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><h3>Loading...</h3></div></div>
             </div>
         </div>
 
@@ -967,12 +987,51 @@
         document.body.removeChild(downloadLink);
     }
 
+    // ===== DAILY CHECK-INS =====
+    function setCheckinDateToday() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('checkinDatePicker').value = today;
+        loadDailyCheckins();
+    }
+
+    async function loadDailyCheckins() {
+        const c = document.getElementById('dailyCheckinsContent');
+        const datePicker = document.getElementById('checkinDatePicker');
+        const badge = document.getElementById('checkinCountBadge');
+        const selectedDate = datePicker.value;
+        if (!selectedDate) { c.innerHTML = '<div class="empty-state"><i class="fas fa-calendar-alt"></i><h3>Select a date</h3><p>Choose a date to view check-ins</p></div>'; badge.textContent = ''; return; }
+        try {
+            const res = await fetch(`/api/admin/daily-checkins?date=${selectedDate}`);
+            const data = await res.json();
+            badge.innerHTML = `<i class="fas fa-users" style="margin-right:6px;"></i> ${data.total} check-in${data.total !== 1 ? 's' : ''}`;
+            if (!data.checkins.length) {
+                c.innerHTML = '<div class="empty-state"><i class="fas fa-calendar-times"></i><h3>No check-ins</h3><p>No members checked in on this date</p></div>';
+                return;
+            }
+            let html = '<div class="table-wrap"><table id="dailyCheckinsTable"><tr><th>#</th><th>Member</th><th>Email</th><th>Phone</th><th>Gender</th><th>Plan</th><th>Check-in Time</th></tr>';
+            data.checkins.forEach((ck, i) => {
+                const time = ck.checkin_time.split(' ')[1] || ck.checkin_time;
+                html += `<tr>
+                    <td>${i + 1}</td>
+                    <td><strong>${ck.first_name} ${ck.last_name}</strong></td>
+                    <td>${ck.email || '--'}</td>
+                    <td>${ck.phone || '--'}</td>
+                    <td>${ck.gender || '--'}</td>
+                    <td><span class="badge badge-active">${ck.plan_name}</span></td>
+                    <td style="color:#22d3ee;font-weight:600;"><i class="fas fa-clock" style="margin-right:4px;opacity:0.7;"></i>${time}</td>
+                </tr>`;
+            });
+            html += '</table></div>';
+            c.innerHTML = html;
+        } catch(e) { c.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error loading check-ins</h3></div>'; }
+    }
+
     // ===== SECTION SWITCHING =====
     const origShowSection = showSection;
     showSection = function(name) {
         origShowSection(name);
         document.getElementById('pageTitle').textContent =
-            {dashboard:'Dashboard',members:'Members',requests:'Membership Requests',payments:'Payments',plans:'Manage Plans',announcements:'Announcements',instructors:'Instructors',instructorBookings:'Instructor Bookings',logs:'Activity Log'}[name] || name;
+            {dashboard:'Dashboard',members:'Members',requests:'Membership Requests',payments:'Payments',plans:'Manage Plans',announcements:'Announcements',instructors:'Instructors',instructorBookings:'Instructor Bookings',dailyCheckins:'Daily Check-ins',logs:'Activity Log'}[name] || name;
         if (name === 'dashboard') { loadStats(); loadCharts(); }
         else if (name === 'members') loadMembers();
         else if (name === 'requests') loadRequests();
@@ -981,6 +1040,7 @@
         else if (name === 'announcements') loadAnnouncements();
         else if (name === 'instructors') loadInstructors();
         else if (name === 'instructorBookings') loadInstructorBookings();
+        else if (name === 'dailyCheckins') { setCheckinDateToday(); }
         else if (name === 'logs') loadLogs();
     };
 

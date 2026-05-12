@@ -472,9 +472,14 @@ def checkin():
         cursor = conn.cursor(dictionary=True)
         mid = session['user_id']
 
-        cursor.execute("SELECT COUNT(*) as cnt FROM memberships WHERE member_id=%s AND status='active' AND end_date >= CURDATE()", (mid,))
+        cursor.execute("SELECT COUNT(*) as cnt FROM memberships WHERE member_id=%s AND status='active' AND start_date <= CURDATE() AND end_date >= CURDATE()", (mid,))
         if cursor.fetchone()['cnt'] == 0:
+            # Check if they have a future membership
+            cursor.execute("SELECT start_date FROM memberships WHERE member_id=%s AND status='active' AND start_date > CURDATE() AND end_date >= CURDATE() LIMIT 1", (mid,))
+            future = cursor.fetchone()
             cursor.close(); conn.close()
+            if future:
+                return jsonify({"error": f"Your membership starts on {future['start_date']}. You cannot check in until then."}), 403
             return jsonify({"error": "No active membership. Please apply first."}), 403
 
         cursor.execute("SELECT COUNT(*) as cnt FROM attendance WHERE member_id=%s AND DATE(checkin_time)=CURDATE()", (mid,))
@@ -581,24 +586,43 @@ def update_my_profile():
         first_name = data.get('first_name', '').strip()
         last_name = data.get('last_name', '').strip()
         phone = data.get('phone', '').strip()
-        height_cm = data.get('height_cm')
 
         if len(first_name) < 2 or len(last_name) < 2:
             return jsonify({"error": "Name must be at least 2 characters"}), 400
         if len(phone) != 11 or not phone.isdigit():
             return jsonify({"error": "Phone must be exactly 11 digits"}), 400
 
-        try:
-            height_val = float(height_cm) if height_cm else None
-        except ValueError:
-            height_val = None
-
         cursor = conn.cursor()
-        cursor.execute("UPDATE members SET first_name=%s, last_name=%s, phone=%s, height_cm=%s WHERE member_id=%s",
-                       (first_name, last_name, phone, height_val, session['user_id']))
+        cursor.execute("UPDATE members SET first_name=%s, last_name=%s, phone=%s WHERE member_id=%s",
+                       (first_name, last_name, phone, session['user_id']))
         cursor.close(); conn.close()
         session['name'] = f"{first_name} {last_name}"
         return jsonify({"message": "Profile updated successfully!"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/update-height', methods=['POST'])
+@member_required
+def update_height():
+    data = request.get_json()
+    height_cm = data.get('height_cm')
+    if not height_cm:
+        return jsonify({"error": "Height is required"}), 400
+    try:
+        height_val = float(height_cm)
+        if height_val < 50 or height_val > 300:
+            return jsonify({"error": "Height must be between 50 and 300 cm"}), 400
+    except (ValueError, TypeError):
+        return jsonify({"error": "Invalid height value"}), 400
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE members SET height_cm=%s WHERE member_id=%s",
+                       (height_val, session['user_id']))
+        cursor.close(); conn.close()
+        return jsonify({"message": "Height updated successfully!"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -932,6 +956,34 @@ def chart_daily_attendance():
             "labels": [d['label'] for d in data],
             "values": [d['count'] for d in data]
         })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/admin/daily-checkins', methods=['GET'])
+@admin_required
+def admin_daily_checkins():
+    target_date = request.args.get('date', str(date.today()))
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database unavailable"}), 500
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT a.attendance_id, a.checkin_time,
+                   m.member_id, m.first_name, m.last_name, m.email, m.phone, m.gender,
+                   COALESCE(mp.plan_name, '--') as plan_name
+            FROM attendance a
+            JOIN members m ON a.member_id = m.member_id
+            LEFT JOIN memberships ms ON m.member_id = ms.member_id AND ms.status='active' AND ms.end_date >= CURDATE()
+            LEFT JOIN membership_plans mp ON ms.plan_id = mp.plan_id
+            WHERE DATE(a.checkin_time) = %s
+            ORDER BY a.checkin_time DESC
+        """, (target_date,))
+        checkins = cursor.fetchall()
+        cursor.close(); conn.close()
+        for c in checkins:
+            c['checkin_time'] = str(c['checkin_time'])
+        return jsonify({"date": target_date, "total": len(checkins), "checkins": checkins})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
