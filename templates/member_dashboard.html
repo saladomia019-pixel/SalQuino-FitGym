@@ -1138,6 +1138,7 @@
                 <h4>${p.plan_name}</h4>
                 <div class="plan-price">₱${Number(p.price).toLocaleString()}<small>/${p.type}</small></div>
                 <p>${p.duration_days} days</p>
+                ${p.description ? '<div style="color:#94a3b8;font-size:12px;margin-top:6px;text-align:left;">' + formatDescription(p.description) + '</div>' : ''}
             </div>`).join('');
         }
 
@@ -1454,6 +1455,7 @@
                     <h4>${p.plan_name}</h4>
                     <div class="plan-price">\u20b1${Number(p.price).toLocaleString()}<small>/${p.type}</small></div>
                     <p>${p.duration_days} days</p>
+                    ${p.description ? '<div style="color:#94a3b8;font-size:12px;margin-top:6px;text-align:left;">' + formatDescription(p.description) + '</div>' : ''}
                 </div>`).join('');
             } catch (e) { document.getElementById('renewPlanOptions').innerHTML = '<p style="color:#94a3b8;">Error loading plans</p>'; }
         }
@@ -1757,7 +1759,7 @@
                 <div class="plan-option" onclick="selectHirePlan(${JSON.stringify(p).replace(/'/g, '&#39;').replace(/"/g, '&quot;')}, this)">
                     <h4>${p.plan_name}</h4>
                     <div class="plan-price">${formatPeso(p.price)}<small>/${p.duration_days} days</small></div>
-                    <p>${p.description || ''}</p>
+                    <div style="color:#94a3b8;font-size:12px;text-align:left;">${formatDescription(p.description)}</div>
                 </div>
             `).join('');
             } catch (e) { planContainer.innerHTML = '<div class="empty-state"><p>Error loading plans</p></div>'; }

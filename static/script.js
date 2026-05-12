@@ -67,6 +67,17 @@ function formatDate(dateStr) {
     return new Date(dateStr).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+// Format Description — converts newlines and bullet markers into an HTML list
+function formatDescription(desc) {
+    if (!desc) return '';
+    const lines = desc.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    if (lines.length <= 1 && !/^[-*•]/.test(lines[0] || '')) return desc;
+    const items = lines.map(l => l.replace(/^[-*•]\s*/, ''));
+    return '<ul style="list-style:none;padding:0;margin:8px 0 0 0;">' +
+        items.map(item => `<li style="position:relative;padding-left:16px;margin-bottom:4px;line-height:1.5;"><span style="position:absolute;left:0;color:#f97316;">•</span>${item}</li>`).join('') +
+        '</ul>';
+}
+
 // Smooth scroll for landing page
 function scrollToSection(id) {
     document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
@@ -89,7 +100,7 @@ async function loadPublicPlans() {
         container.innerHTML = plans.map((plan, index) => {
             const durationLabel = plan.type ? `${plan.type} • ${plan.duration_days} days` : `${plan.duration_days} days`;
             const descriptionHtml = plan.description
-                ? `<p style="color:#cbd5e1;margin-top:18px;line-height:1.6;font-size:15px;">${plan.description}</p>`
+                ? `<div style="color:#cbd5e1;margin-top:18px;line-height:1.6;font-size:15px;">${formatDescription(plan.description)}</div>`
                 : '';
             const popularClass = index === 0 ? ' popular' : '';
             const badge = index === 0 ? '<div class="pop-badge">BEST VALUE</div>' : '';

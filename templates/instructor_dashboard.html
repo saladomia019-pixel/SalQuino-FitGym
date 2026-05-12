@@ -264,7 +264,7 @@
                     ? `<button class="btn btn-red btn-sm" onclick="togglePlan(${p.plan_id})"><i class="fas fa-ban"></i></button>`
                     : `<button class="btn btn-green btn-sm" onclick="togglePlan(${p.plan_id})"><i class="fas fa-check"></i></button>`;
                 html += `<tr>
-                    <td><strong>${p.plan_name}</strong>${p.description?'<br><span style="color:#64748b;font-size:11px;">'+p.description+'</span>':''}</td>
+                    <td><strong>${p.plan_name}</strong>${p.description?'<div style="color:#64748b;font-size:11px;">'+formatDescription(p.description)+'</div>':''}</td>
                     <td>${p.duration_days} days</td>
                     <td>${formatPeso(p.price)}</td>
                     <td style="color:#10b981;font-weight:700;">${formatPeso(earning)}</td>
