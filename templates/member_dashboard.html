@@ -504,14 +504,21 @@
                     style="background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.15);border-radius:14px;padding:20px;margin-bottom:16px;">
                     <h4 style="color:#fff;margin-bottom:16px;font-size:15px;"><i class="fas fa-calendar-alt"
                             style="color:#f97316;"></i> Set Your Schedule</h4>
-                    <div class="form-group"><label>Start Date</label>
-                        <input type="date" id="hireStartDate"
-                            style="width:100%;padding:12px 16px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);border-radius:10px;color:#e2e8f0;font-size:14px;outline:none;font-family:'Inter',sans-serif;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+                        <div class="form-group"><label>Start Date</label>
+                            <input type="date" id="hireStartDate"
+                                style="width:100%;padding:12px 16px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.2);border-radius:10px;color:#e2e8f0;font-size:14px;outline:none;font-family:'Inter',sans-serif;">
+                        </div>
+                        <div class="form-group"><label>End Date</label>
+                            <div id="hireEndDateDisplay"
+                                style="padding:12px 16px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;color:#6ee7b7;font-size:14px;font-weight:600;min-height:44px;display:flex;align-items:center;">
+                                Select a start date</div>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label style="margin-bottom:8px;display:block;">Choose Available Time Slots</label>
                         <p style="color:#64748b;font-size:12px;margin-bottom:12px;"><i class="fas fa-info-circle"
-                                style="color:#3b82f6;"></i> Click on available time slots to select them. Red slots are
+                                style="color:#3b82f6;"></i> Click on available time slots to select them. You can only select one slot per day. Red slots are
                             already booked by another member.</p>
                         <div id="hireTimeSlots" style="min-height:60px;">
                             <div class="empty-state" style="padding:20px;"><i class="fas fa-spinner fa-spin"></i>
@@ -1719,23 +1726,49 @@
                 const res = await fetch('/api/instructors');
                 const instructors = await res.json();
                 if (!instructors.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-chalkboard-teacher"></i><h3>No Instructors Available</h3><p>Check back later for available fitness instructors</p></div>'; return; }
-                c.innerHTML = instructors.map(i => `
-                <div class="instructor-card">
-                    <div class="instructor-avatar">${i.first_name[0]}${i.last_name[0]}</div>
-                    <div class="instructor-name">${i.first_name} ${i.last_name}</div>
-                    ${i.specialization ? '<div style="color:#f97316;font-size:13px;font-weight:600;margin-bottom:8px;">' + i.specialization + '</div>' : ''}
-                    <div class="instructor-bio">${i.bio || 'Professional fitness instructor ready to help you reach your goals.'}</div>
-                    <button class="btn btn-blue btn-lg" style="width:100%;margin-top:16px;background:linear-gradient(135deg,#f97316,#ea580c);" onclick='openHireModal(${JSON.stringify(i).replace(/\x27/g, "&#39;")})'>
-                        <i class="fas fa-clipboard-list"></i> View Plans & Subscribe
-                    </button>
-                </div>
-            `).join('');
+                
+                // Build instructor cards with availability check
+                let html = '';
+                for (const i of instructors) {
+                    // Check if this instructor has available slots
+                    let hasAvailableSlots = false;
+                    try {
+                        const slotsRes = await fetch(`/api/instructor/${i.instructor_id}/available-slots`);
+                        const slots = await slotsRes.json();
+                        hasAvailableSlots = slots.some(s => !s.is_booked);
+                    } catch (e) {
+                        console.error(`Error checking slots for instructor ${i.instructor_id}:`, e);
+                    }
+                    
+                    // Build button based on availability
+                    let buttonHtml;
+                    if (hasAvailableSlots) {
+                        buttonHtml = `<button class="btn btn-blue btn-lg" style="width:100%;margin-top:16px;background:linear-gradient(135deg,#f97316,#ea580c);" onclick='openHireModal(${JSON.stringify(i).replace(/\x27/g, "&#39;")})'>
+                            <i class="fas fa-clipboard-list"></i> View Plans & Subscribe
+                        </button>`;
+                    } else {
+                        buttonHtml = `<button class="btn btn-lg" style="width:100%;margin-top:16px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;cursor:not-allowed;opacity:0.7;" disabled title="All timeslots are booked">
+                            <i class="fas fa-lock"></i> Fully Booked
+                        </button>`;
+                    }
+                    
+                    html += `
+                    <div class="instructor-card">
+                        <div class="instructor-avatar">${i.first_name[0]}${i.last_name[0]}</div>
+                        <div class="instructor-name">${i.first_name} ${i.last_name}</div>
+                        ${i.specialization ? '<div style="color:#f97316;font-size:13px;font-weight:600;margin-bottom:8px;">' + i.specialization + '</div>' : ''}
+                        <div class="instructor-bio">${i.bio || 'Professional fitness instructor ready to help you reach your goals.'}</div>
+                        ${buttonHtml}
+                    </div>`;
+                }
+                c.innerHTML = html;
             } catch (e) { c.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error loading instructors</h3></div>'; }
         }
 
         async function openHireModal(instructor) {
             hireInstructor_data = instructor;
             hirePlanData = null;
+            
             document.getElementById('hireStep1').style.display = 'block';
             document.getElementById('hireStep2').style.display = 'none';
             document.getElementById('hireInstructorInfo').innerHTML = `
@@ -1779,8 +1812,45 @@
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('hireStartDate').min = today;
             document.getElementById('hireStartDate').value = today;
+            
+            // Add event listener for start date change to calculate end date
+            const startDateInput = document.getElementById('hireStartDate');
+            startDateInput.onchange = function() {
+                calculateHireEndDate();
+            };
+            
+            // Calculate initial end date
+            calculateHireEndDate();
+            
             // Load time slots for this instructor
             loadHireTimeSlots();
+        }
+        
+        function calculateHireEndDate() {
+            const startDateStr = document.getElementById('hireStartDate').value;
+            if (!startDateStr || !hirePlanData) return;
+            
+            const startDate = new Date(startDateStr);
+            const durationDays = hirePlanData.duration_days;
+            const endDate = new Date(startDate);
+            endDate.setDate(endDate.getDate() + durationDays - 1);
+            
+            // Format end date as YYYY-MM-DD
+            const year = endDate.getFullYear();
+            const month = String(endDate.getMonth() + 1).padStart(2, '0');
+            const day = String(endDate.getDate()).padStart(2, '0');
+            const endDateStr = `${year}-${month}-${day}`;
+            
+            // Display end date (you can add a display element if needed)
+            // For now, we'll store it so it can be used in submission
+            document.getElementById('hireEndDate') ? document.getElementById('hireEndDate').value = endDateStr : null;
+            
+            // Also update the display if there's a label
+            const endDateDisplay = document.getElementById('hireEndDateDisplay');
+            if (endDateDisplay) {
+                endDateDisplay.textContent = formatDate(endDateStr);
+                endDateDisplay.style.color = '#6ee7b7';
+            }
         }
 
         async function loadHireTimeSlots() {
@@ -1856,10 +1926,25 @@
         }
 
         function toggleSlotSelection(slotId) {
+            const clickedSlot = hireAvailableSlots.find(s => s.slot_id === slotId);
+            if (!clickedSlot) return;
+            
             const idx = selectedSlotIds.indexOf(slotId);
             if (idx > -1) {
+                // Already selected, deselect it
                 selectedSlotIds.splice(idx, 1);
             } else {
+                // Check if a slot for this day is already selected
+                const slotsForDay = hireAvailableSlots.filter(s => s.day_of_week === clickedSlot.day_of_week);
+                const selectedSlotForDay = slotsForDay.find(s => selectedSlotIds.includes(s.slot_id));
+                
+                if (selectedSlotForDay) {
+                    // A slot is already selected for this day, show error
+                    showToast(`You can only select one slot per day. You already have a slot selected for ${clickedSlot.day_of_week}.`, 'error');
+                    return;
+                }
+                
+                // Safe to add this slot
                 selectedSlotIds.push(slotId);
             }
             renderHireSlotButtons();
