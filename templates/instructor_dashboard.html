@@ -225,6 +225,8 @@
                 } else if (b.status === 'approved') {
                     actions = `<button class="btn btn-blue btn-sm" onclick="completeClient(${b.booking_id})"><i class="fas fa-flag-checkered"></i> Complete</button>`;
                     if (needsPay) actions += ` <button class="btn btn-yellow btn-sm" onclick="markClientPaid(${b.booking_id})" title="Mark as Paid"><i class="fas fa-money-bill-wave"></i> Mark Paid</button>`;
+                } else if (b.status === 'completed') {
+                    actions = `<button class="btn btn-yellow btn-sm" onclick="undoClient(${b.booking_id})"><i class="fas fa-undo"></i> Undo</button>`;
                 } else {
                     actions = `<span style="color:#64748b;font-size:12px;">${b.status}</span>`;
                 }
@@ -247,6 +249,7 @@
     async function approveClient(id) { if(!confirm('Approve this booking?'))return; try{const r=await fetch(`/api/instructor/booking/${id}/approve`,{method:'POST'});const d=await r.json();if(r.ok){showToast(d.message);loadClients();loadStats();}else showToast(d.error,'error');}catch(e){showToast('Failed','error');} }
     async function rejectClient(id) { if(!confirm('Reject this booking?'))return; try{const r=await fetch(`/api/instructor/booking/${id}/reject`,{method:'POST'});const d=await r.json();if(r.ok){showToast(d.message);loadClients();loadStats();}else showToast(d.error,'error');}catch(e){showToast('Failed','error');} }
     async function completeClient(id) { if(!confirm('Mark as completed?'))return; try{const r=await fetch(`/api/instructor/booking/${id}/complete`,{method:'POST'});const d=await r.json();if(r.ok){showToast(d.message);loadClients();loadStats();}else showToast(d.error,'error');}catch(e){showToast('Failed','error');} }
+    async function undoClient(id) { if(!confirm('Undo completed session and return the booking to approved status?'))return; try{const r=await fetch(`/api/instructor/booking/${id}/undo`,{method:'POST'});const d=await r.json();if(r.ok){showToast(d.message);loadClients();loadStats();}else showToast(d.error,'error');}catch(e){showToast('Failed','error');} }
     async function markClientPaid(id) { if(!confirm('Mark this booking as paid? Only do this after receiving payment from the member.'))return; try{const r=await fetch(`/api/instructor/booking/${id}/mark-paid`,{method:'POST'});const d=await r.json();if(r.ok){showToast(d.message);loadClients();loadStats();}else showToast(d.error,'error');}catch(e){showToast('Failed','error');} }
 
     // PLANS

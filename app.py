@@ -2193,6 +2193,20 @@ def instructor_complete_booking(booking_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/instructor/booking/<int:booking_id>/undo', methods=['POST'])
+@login_required
+@instructor_required
+def instructor_undo_booking(booking_id):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE instructor_bookings SET status='approved' WHERE booking_id=%s AND instructor_id=%s AND status='completed'",
+                       (booking_id, session['user_id']))
+        conn.commit(); cursor.close(); conn.close()
+        return jsonify({"message": "Booking reverted to approved status"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/instructor/booking/<int:booking_id>/mark-paid', methods=['POST'])
 @login_required
 @instructor_required
