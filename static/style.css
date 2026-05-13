@@ -157,6 +157,11 @@ tr:hover td{background:rgba(59,130,246,0.04);}
 .btn-sm{padding:7px 14px;font-size:12px;border-radius:8px;}
 .btn-lg{padding:16px 32px;font-size:16px;border-radius:14px;}
 
+.theme-toggle{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:999px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.08);color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.25s ease;}
+.theme-toggle:hover{background:rgba(255,255,255,0.14);}
+.topbar .theme-toggle{margin-left:auto;}
+.landing-nav .theme-toggle{border-color:rgba(255,255,255,0.24);}
+
 /* Check-in Button */
 .checkin-section{text-align:center;padding:40px 20px;}
 .checkin-btn{width:180px;height:180px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);border:none;color:#fff;font-size:18px;font-weight:700;cursor:pointer;box-shadow:0 8px 40px rgba(16,185,129,0.3);transition:all 0.3s;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;animation:pulse-glow 2s ease-in-out infinite;}
@@ -258,6 +263,116 @@ tr:hover td{background:rgba(59,130,246,0.04);}
 /* Payment Processing Spinner */
 .payment-spinner{width:60px;height:60px;border:4px solid rgba(148,163,184,0.15);border-top:4px solid #10b981;border-radius:50%;margin:0 auto;animation:spin-payment 1s linear infinite;}
 @keyframes spin-payment{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}
+
+/* Light theme overrides */
+body.light-mode{background:#f8fafc;color:#0f172a;}
+body.light-mode .landing-page{background:#eef2ff;}
+body.light-mode .landing-nav{background:rgba(255,255,255,0.96);border-color:rgba(148,163,184,0.25);color:#0f172a;}
+body.light-mode .landing-nav .nav-links a{color:#334155;}
+body.light-mode .landing-nav .btn-primary{background:linear-gradient(135deg,#3b82f6,#2563eb);}
+body.light-mode .landing-nav .theme-toggle{background:#f1f5f9;color:#0f172a;border-color:rgba(148,163,184,0.35);}
+body.light-mode .hero{background-image:none;background:linear-gradient(135deg,#eff6ff,#e2e8f0);}
+body.light-mode .hero h1{-webkit-text-fill-color:transparent;background:linear-gradient(135deg,#0f172a,#475569);}
+body.light-mode .hero p{color:#334155;}
+body.light-mode .feature-card,
+body.light-mode .plan-preview-card,
+body.light-mode .section-card,
+body.light-mode .auth-card,
+body.light-mode .sidebar,
+body.light-mode .chart-card,
+body.light-mode .modal,
+body.light-mode .table-wrap,
+body.light-mode .payment-summary,
+body.light-mode .membership-active-card,
+body.light-mode .receipt-card,
+body.light-mode .ticket-card,
+body.light-mode .date-block,
+body.light-mode .pending-card,
+body.light-mode .apply-cta,
+body.light-mode .profile-avatar,
+body.light-mode .instructor-card{background:rgba(255,255,255,0.95);border-color:rgba(148,163,184,0.25);color:#0f172a;}
+body.light-mode .sidebar{background:#ffffff;}
+body.light-mode .dashboard-container{background:#f1f5f9;}
+body.light-mode .auth-page{background:linear-gradient(135deg,#eef2ff,#f8fafc);}
+body.light-mode .main-content{background:transparent;}
+body.light-mode .topbar{background:rgba(255,255,255,0.95);border-bottom:1px solid rgba(148,163,184,0.25);}
+body.light-mode .sidebar-header .user-name,
+body.light-mode .sidebar-header .user-role,
+body.light-mode .sidebar-nav a,
+body.light-mode .sidebar-footer a,
+body.light-mode .topbar h1,
+body.light-mode .stat-card .stat-label,
+body.light-mode .stat-card .stat-value,
+body.light-mode .section-title h2,
+body.light-mode .section-title p,
+body.light-mode .feature-card h3,
+body.light-mode .feature-card p,
+body.light-mode .plan-preview-card h3,
+body.light-mode .plan-preview-card .price,
+body.light-mode th,
+body.light-mode td,
+body.light-mode .modal h3,
+body.light-mode .form-group label,
+body.light-mode .form-group input,
+body.light-mode .form-group select,
+body.light-mode textarea,
+body.light-mode .flash-msg,
+body.light-mode .empty-state,
+body.light-mode .profile-name,
+body.light-mode .profile-email,
+body.light-mode .profile-meta,
+body.light-mode .progress-ring-number,
+body.light-mode .streak-card,
+body.light-mode .cal-title,
+body.light-mode .cal-day-name,
+body.light-mode .cal-day,
+body.light-mode .chart-card h3,
+body.light-mode .receipt-header,
+body.light-mode .ticket-header,
+body.light-mode .receipt-row span,
+body.light-mode .ticket-row span,
+body.light-mode .receipt-footer,
+body.light-mode .ticket-footer{color:#0f172a;}
+body.light-mode .form-group input,
+body.light-mode .form-group select,
+body.light-mode textarea{background:#f8fafc;border-color:rgba(148,163,184,0.3);color:#0f172a;}
+body.light-mode .form-group input::placeholder,
+body.light-mode .form-group select option,
+body.light-mode textarea::placeholder{color:#64748b;}
+body.light-mode .topbar .hamburger{background:rgba(255,255,255,0.92);border-color:rgba(148,163,184,0.25);color:#0f172a;}
+body.light-mode .sidebar-nav a:hover{background:rgba(59,130,246,0.08);color:#0f172a;}
+body.light-mode .sidebar-nav a.active{background:rgba(59,130,246,0.12);color:#0f172a;border-left-color:#3b82f6;}
+body.light-mode .flash-msg{background:rgba(248,250,252,0.96);border-color:rgba(148,163,184,0.3);}
+body.light-mode .flash-error{background:rgba(254,226,226,0.9);color:#991b1b;}
+body.light-mode .flash-success{background:rgba(217,249,157,0.9);color:#365314;}
+body.light-mode .theme-toggle{background:#f8fafc;color:#0f172a;border-color:rgba(148,163,184,0.35);}
+body.light-mode .btn-primary{box-shadow:0 8px 30px rgba(59,130,246,0.15);}
+body.light-mode .btn-blue,
+body.light-mode .btn-green,
+body.light-mode .btn-yellow,
+body.light-mode .btn-red{color:#fff;}
+body.light-mode .btn{box-shadow:none;}
+body.light-mode .checkin-btn{background:linear-gradient(135deg,#10b981,#059669);}
+body.light-mode .hero::before,
+body.light-mode .hero::after{background:transparent;}
+body.light-mode .membership-active-card .detail-item{background:#f8fafc;border:1px solid rgba(148,163,184,0.35);}
+body.light-mode .membership-active-card .detail-item label{color:#475569;}
+body.light-mode .membership-active-card .detail-item span{color:#0f172a;}
+body.light-mode .membership-active-card h3{color:#0f172a;}
+body.light-mode .membership-dates-card{background:#eef2ff;border-color:rgba(148,163,184,0.35);}
+body.light-mode .membership-dates-card .date-block{background:#ffffff;border-color:rgba(148,163,184,0.2);}
+body.light-mode .membership-dates-card .date-block .date-label,
+body.light-mode .membership-dates-card .date-block .date-value{color:#0f172a;}
+body.light-mode .pending-card{background:rgba(254,243,199,0.8);border-color:rgba(245,158,11,0.35);}
+body.light-mode .pending-card i{color:#b45309;}
+body.light-mode .pending-card h3{color:#92400e;}
+body.light-mode .pending-card p{color:#7c2d12;}
+body.light-mode .profile-name{color:#0f172a;}
+body.light-mode .profile-email{color:#2563eb;}
+body.light-mode .profile-meta{color:#475569;}
+body.light-mode .streak-card{background:#ffffff;border-color:rgba(148,163,184,0.2);}
+body.light-mode .streak-num{color:#0f172a;}
+body.light-mode .streak-lbl{color:#475569;}
 
 /* Empty State */
 .empty-state{text-align:center;padding:60px 20px;color:#64748b;}

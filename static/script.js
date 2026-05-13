@@ -8,14 +8,24 @@ function toggleSidebar() {
 }
 
 // Section Switching
+function updateThemeToggleVisibility() {
+    const themeBtn = document.getElementById('themeToggleBtn');
+    if (!themeBtn) return;
+    const activeSection = document.querySelector('.content-section.active');
+    const activeName = activeSection ? activeSection.id.replace(/Section$/, '') : '';
+    themeBtn.style.display = ['dashboard', 'overview'].includes(activeName) ? 'inline-flex' : 'none';
+}
+
 function showSection(name) {
     document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
-    document.getElementById(name + 'Section').classList.add('active');
+    const section = document.getElementById(name + 'Section');
+    if (section) section.classList.add('active');
     document.querySelectorAll('.sidebar-nav a').forEach(a => a.classList.remove('active'));
     if (event && event.target) {
         const link = event.target.closest('a');
         if (link) link.classList.add('active');
     }
+    updateThemeToggleVisibility();
     // Close sidebar on mobile
     if (window.innerWidth < 768) {
         document.getElementById('sidebar').classList.remove('active');
@@ -78,6 +88,33 @@ function formatDescription(desc) {
         '</ul>';
 }
 
+function updateThemeButton() {
+    document.querySelectorAll('.theme-toggle').forEach(btn => {
+        if (document.body.classList.contains('light-mode')) {
+            btn.innerHTML = '<i class="fas fa-moon"></i> Dark';
+            btn.setAttribute('aria-label', 'Switch to dark mode');
+        } else {
+            btn.innerHTML = '<i class="fas fa-sun"></i> Light';
+            btn.setAttribute('aria-label', 'Switch to light mode');
+        }
+    });
+}
+
+function applyTheme(theme) {
+    document.body.classList.toggle('light-mode', theme === 'light');
+    localStorage.setItem('salquinoTheme', theme);
+    updateThemeButton();
+}
+
+function loadThemePreference() {
+    const savedTheme = localStorage.getItem('salquinoTheme');
+    applyTheme(savedTheme === 'light' ? 'light' : 'dark');
+}
+
+function toggleTheme() {
+    applyTheme(document.body.classList.contains('light-mode') ? 'dark' : 'light');
+}
+
 // Smooth scroll for landing page
 function scrollToSection(id) {
     document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
@@ -122,6 +159,8 @@ async function loadPublicPlans() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    loadThemePreference();
+    updateThemeToggleVisibility();
     loadPublicPlans();
 
     // Auto-dismiss flash messages after 2 seconds

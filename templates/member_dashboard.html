@@ -47,6 +47,7 @@
             <div class="topbar">
                 <div class="hamburger" onclick="toggleSidebar()"><i class="fas fa-bars"></i></div>
                 <h1 id="pageTitle">Dashboard</h1>
+                <button type="button" class="theme-toggle" onclick="toggleTheme()" id="themeToggleBtn" style="display:none;">Dark</button>
             </div>
 
             {% with messages = get_flashed_messages(with_categories=true) %}
