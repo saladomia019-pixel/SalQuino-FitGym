@@ -161,6 +161,8 @@ async function loadPublicPlans() {
 document.addEventListener('DOMContentLoaded', () => {
     loadThemePreference();
     updateThemeToggleVisibility();
+    // Ensure visibility is recalculated after the initial render
+    setTimeout(updateThemeToggleVisibility, 0);
     loadPublicPlans();
 
     // Auto-dismiss flash messages after 2 seconds
